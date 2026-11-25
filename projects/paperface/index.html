@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark light">
+  <title>Paperface: Who&#x27;s the Killer? | TheLapisFox02</title>
+  <meta name="description" content="Murder-mystery game. UI, kill effect, crates and daily rewards by hand; season pass, shop extraction and referrals built with AI.">
+  <link rel="stylesheet" href="../../fonts.css">
+  <link rel="stylesheet" href="../../code.css">
+  <link rel="stylesheet" href="../../studio.css">
+  <script src="../../theme.js"></script>
+  <script src="../../studio.js" defer></script>
+</head>
+<body class="">
+<a class="skip" href="#doc">Skip to content</a>
+
+<div class="titlebar">
+  <a class="app" href="../../index.html">TheLapisFox02</a>
+  <button class="themebtn" type="button" hidden>Theme: Auto</button>
+</div>
+<nav class="ribbon" aria-label="Site"><ul><li><a href="../../index.html">Home</a></li><li><a href="../../index.html#projects" aria-current="page">Projects</a></li><li><a href="../../about/">About</a></li><li><a href="../../hire/">Hire me</a></li></ul></nav>
+
+<div class="workspace">
+  <aside class="explorer" aria-label="Site">
+    <p class="panel-title">Explorer<span>whole site</span></p>
+    <ul class="tree"><li><div class="row"><span class="twisty none"></span><a href="../../index.html">Home</a></div></li><li><details open><summary class="row"><span class="twisty" title="Expand or collapse"></span><a href="../../index.html#projects">Projects</a></summary><ul><li><details open><summary class="row"><span class="twisty" title="Expand or collapse"></span><a href="../../projects/paperface/" aria-current="page">Paperface</a></summary><ul><li><a class="row grand" href="#by-me">Systems I wrote</a></li><li><a class="row grand" href="#with-ai">Systems built with AI</a></li></ul></details></li><li><div class="row"><span class="twisty none"></span><a href="../../projects/amusementpark/">Fårup Sommerland</a></div></li><li><div class="row"><span class="twisty none"></span><a href="../../projects/fish-in-a-pond/">Fish In A Pond</a></div></li><li><div class="row"><span class="twisty none"></span><a href="../../projects/roll-gems/">Roll Gems for Money</a></div></li><li><div class="row"><span class="twisty none"></span><a href="../../projects/betternotifications/">BetterNotifications</a></div></li><li><div class="row"><span class="twisty none"></span><a href="../../projects/wilted-suite/">WiltedSuite</a></div></li><li><div class="row"><span class="twisty none"></span><a href="../../projects/break-blocks/">Break Blocks for Money</a></div></li></ul></details></li><li><div class="row"><span class="twisty none"></span><a href="../../about/">About</a></div></li><li><div class="row"><span class="twisty none"></span><a href="../../hire/">Hire me</a></div></li></ul>
+  </aside>
+
+  <div class="document" id="doc">
+    <header class="hero col" id="top">
+      <p class="back"><a href="../../index.html#projects">&larr; All projects</a></p>
+      <h1>Paperface: Who&#x27;s the Killer?</h1>
+      <div class="project-head"><img class="hero-img" src="../../media/thumbs/paperface.jpg" width="640" height="360" alt=""><table class="props compact"><caption>Properties</caption><tbody><tr><th scope="row">Role</th><td>Co-lead programmer</td></tr><tr><th scope="row">Authorship</th><td><span class="hand">Handcrafted</span> &middot; <span class="ai">AI-assisted</span></td></tr><tr><th scope="row">Key number</th><td>191.9M visits</td></tr></tbody></table></div>
+    </header>
+    <main class="col project">
+<p class="lead">Group-owned murder-mystery game, created April 2024, last updated Nov 2026. I am a co-lead programmer. 191,885,678 visits, 177,985 favorites, 68,024 up / 7,486 down votes. The systems I wrote and the systems built with AI are listed separately below.</p>
+
+<section id="by-me">
+<h2>Systems I wrote</h2>
+<p class="section-note">Written by me. Where AI later fixed or reviewed part of a system, the line says so.</p>
+<ul>
+        <li>The lobby and in-round UI is built and wired by me from a designer's mockups.</li>
+        <li>The hacker kill effect is a module on the knife. On a kill the victim's body freezes in its death pose, the skin is stripped, and it flickers between neon green and near-black with small random twitches. It stops after a fixed time or when the body is removed.</li>
+        <li>The crate service describes a crate as data: price, model, open animation, rarity, weighted contents and chances. I wrote it, and AI reviewed small sections of it.</li>
+        <li>Daily rewards are older code that I wrote by hand. AI later fixed a day-7 display bug in the client handler.</li>
+        <li>The lobby shop funnel is a set of named analytics steps with one session per funnel and no duplicate steps. I built it, and AI later repaired parts of it.</li>
+      </ul>
+</section>
+
+<section id="with-ai">
+<h2>Systems built with AI</h2>
+<p class="section-note">These are the systems where AI did the typing; each line says who did what.</p>
+<ul>
+        <li>Season pass logic. I gave AI a written recipe and it built to it. Tiers unlock on a per-season pass currency instead of a fixed XP ladder, with a free and a premium track, premium bought through a developer product, and an open-ended season mode.</li>
+        <li>Shop service extraction. AI did the work with me as orchestrator and QA. The shop's server logic moved out of the lobby script into one module that the lobby and the game both require, and the two differ only in the context they inject. It was checked against a recorded baseline on mock profiles: 46 of 49 checks identical, and the three differences were behaviour changes I approved.</li>
+        <li>Invite referral rewards. I wrote the recipe and AI implemented it: a topbar invite button that rewards the inviter when a friend joins through it, with each referred player counted once.</li>
+        <li>In-game shop funnel. AI cloned my lobby shop funnel steps into the in-round shop.</li>
+        <li>Season pass funnel. AI implemented a third analytics funnel for the pass, the first one to send custom fields with each step. I confirmed it live.</li>
+        <li>Anti-camping. I set the rule that the server decides and the client only displays. AI built the module that stops players parking at the meeting table, in phases, and I signed off each phase after testing.</li>
+        <li>New crates. AI creates each new crate through the existing crate service: the module, the config and the models. It does not touch the service source.</li>
+      </ul>
+</section>
+
+<p><a href="https://www.roblox.com/games/17103564369/Paperface-Whos-the-Killer">Play on Roblox</a></p>
+
+      <nav class="pager" aria-label="Other projects">
+        <a href="../../projects/break-blocks/">&larr; Break Blocks for Money</a>
+        <a href="../../projects/amusementpark/">Fårup Sommerland &rarr;</a>
+      </nav>
+    </main>
+    <footer class="foot">
+      <div class="col">
+        <p>Last updated 24 November 2026. Stats pulled 2026-11-23 from the public Roblox API. Game images are the games' public Roblox thumbnails. Code highlighting: <a href="https://shiki.style/">Shiki</a>. Colours from the Roblox Studio default themes by Ryan Luu (MIT).</p>
+        <p>Layout inspired by Roblox Studio. Not affiliated with or endorsed by Roblox. Fonts: Source Sans 3 and Fira Mono (SIL Open Font License, <a href="../../fonts/NOTICE.txt">notice</a>).</p>
+      </div>
+    </footer>
+  </div>
+</div>
+</body>
+</html>

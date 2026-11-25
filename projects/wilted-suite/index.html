@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark light">
+  <title>WiltedSuite | TheLapisFox02</title>
+  <meta name="description" content="Reusable monetization, limited stock, inventory and telemetry services that drop into any game.">
+  <link rel="stylesheet" href="../../fonts.css">
+  <link rel="stylesheet" href="../../code.css">
+  <link rel="stylesheet" href="../../studio.css">
+  <script src="../../theme.js"></script>
+  <script src="../../studio.js" defer></script>
+</head>
+<body class="">
+<a class="skip" href="#doc">Skip to content</a>
+
+<div class="titlebar">
+  <a class="app" href="../../index.html">TheLapisFox02</a>
+  <button class="themebtn" type="button" hidden>Theme: Auto</button>
+</div>
+<nav class="ribbon" aria-label="Site"><ul><li><a href="../../index.html">Home</a></li><li><a href="../../index.html#projects" aria-current="page">Projects</a></li><li><a href="../../about/">About</a></li><li><a href="../../hire/">Hire me</a></li></ul></nav>
+
+<div class="workspace">
+  <aside class="explorer" aria-label="Site">
+    <p class="panel-title">Explorer<span>whole site</span></p>
+    <ul class="tree"><li><div class="row"><span class="twisty none"></span><a href="../../index.html">Home</a></div></li><li><details open><summary class="row"><span class="twisty" title="Expand or collapse"></span><a href="../../index.html#projects">Projects</a></summary><ul><li><div class="row"><span class="twisty none"></span><a href="../../projects/paperface/">Paperface</a></div></li><li><div class="row"><span class="twisty none"></span><a href="../../projects/amusementpark/">Fårup Sommerland</a></div></li><li><div class="row"><span class="twisty none"></span><a href="../../projects/fish-in-a-pond/">Fish In A Pond</a></div></li><li><div class="row"><span class="twisty none"></span><a href="../../projects/roll-gems/">Roll Gems for Money</a></div></li><li><div class="row"><span class="twisty none"></span><a href="../../projects/betternotifications/">BetterNotifications</a></div></li><li><div class="row"><span class="twisty none"></span><a href="../../projects/wilted-suite/">WiltedSuite</a></div></li><li><div class="row"><span class="twisty none"></span><a href="../../projects/break-blocks/">Break Blocks for Money</a></div></li></ul></details></li><li><div class="row"><span class="twisty none"></span><a href="../../about/">About</a></div></li><li><div class="row"><span class="twisty none"></span><a href="../../hire/">Hire me</a></div></li></ul>
+  </aside>
+
+  <div class="document" id="doc">
+    <header class="hero col" id="top">
+      <p class="back"><a href="../../index.html#projects">&larr; All projects</a></p>
+      <h1>WiltedSuite</h1>
+      <div class="project-head"><table class="props compact"><caption>Properties</caption><tbody><tr><th scope="row">Role</th><td>Internal development suite</td></tr><tr><th scope="row">Authorship</th><td><span class="ai">AI-assisted</span></td></tr><tr><th scope="row">Key number</th><td>4 public modules, MIT</td></tr></tbody></table></div>
+    </header>
+    <main class="col project">
+<p class="lead">A core plus services I use for internal development: monetization, limited stock, inventory, and telemetry. I start the scripts, write the recipes and design decisions, use AI to expand and improve, and nothing ships until it passes my own QA. Each service is game-blind: the game supplies its own wiring, and a service that finds no core installed disables itself with one warning instead of erroring.</p>
+  <ul>
+    <li>WiltedCore (private, documented only) has 13 modules: logging, signals, remotes, config, retry and a service directory. Its suite passes 40/40 (169 checks), and server and client output are identical.</li>
+    <li>Stock claims from a finite pool with idempotency keys and rollback, so a limited drop's public count stays honest.</li>
+    <li>Monetization holds a product catalogue, purchase rules and grant kinds that the game registers. A receipt that cannot be granted yet is left unconsumed and retried.</li>
+    <li>Inventory is an inventory and hotbar GUI independent of Roblox's default backpack. It has categories (icon, limit), and its layout can be rearranged in Studio without touching code. The public copy leaves out the GUI templates.</li>
+    <li>Harvest is telemetry. It receives events after the game commits them, drops duplicates by event id, keeps per-player summaries and hands them to storage and sinks. It never grants, prices or changes game state, and game-specific adapters live outside the package. The repository includes the adapter from Roll Gems for Money as an example.</li>
+  </ul>
+  <p>Every change comes with a written plan, numbered decisions, phase reports, before/after baselines and drop-in tests.</p>
+  <p>Monetization, Stock, Inventory and Harvest are public under the MIT licence, with a README for each. The core is private: its API is documented, its source is not. <a href="https://github.com/thelapisfox02/WiltedSuite">WiltedSuite on GitHub</a> &middot; <a href="https://github.com/thelapisfox02/WiltedSuite/tree/main/docs/core">core documentation</a>.</p>
+
+      <nav class="pager" aria-label="Other projects">
+        <a href="../../projects/betternotifications/">&larr; BetterNotifications</a>
+        <a href="../../projects/break-blocks/">Break Blocks for Money &rarr;</a>
+      </nav>
+    </main>
+    <footer class="foot">
+      <div class="col">
+        <p>Last updated 24 November 2026. Stats pulled 2026-11-23 from the public Roblox API. Game images are the games' public Roblox thumbnails. Code highlighting: <a href="https://shiki.style/">Shiki</a>. Colours from the Roblox Studio default themes by Ryan Luu (MIT).</p>
+        <p>Layout inspired by Roblox Studio. Not affiliated with or endorsed by Roblox. Fonts: Source Sans 3 and Fira Mono (SIL Open Font License, <a href="../../fonts/NOTICE.txt">notice</a>).</p>
+      </div>
+    </footer>
+  </div>
+</div>
+</body>
+</html>

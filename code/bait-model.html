@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark light">
+  <title>bait-model | TheLapisFox02</title>
+  <link rel="stylesheet" href="../fonts.css">
+  <link rel="stylesheet" href="../code.css">
+  <link rel="stylesheet" href="../studio.css">
+  <script src="../theme.js"></script>
+</head>
+<body class="codepage">
+<div class="titlebar">
+  <span class="app">TheLapisFox02</span>
+  <button class="themebtn" type="button" hidden>Theme: Auto</button>
+</div>
+<main class="col">
+  <p class="back"><a href="../projects/fish-in-a-pond/#numbers">&larr; Back to Fish In A Pond</a></p>
+  <h1>bait-model</h1>
+  <p class="meta"><span class="ai">AI-assisted analysis</span></p>
+  <p>Exact expected-value model of the live catch logic, run in Studio against the place’s own data. Writes nothing to the datamodel. Results: examples/bait-model/bait-model-results.md.</p>
+  <div class="ide">
+  <div class="ide-tabs"><span class="ide-tab">bait-model<small>Script, read-only</small></span></div>
+  <pre class="shiki" style="--start:1" tabindex="0"><code><span class="line"><span style="color:#868B9D">--!nonstrict</span></span>
+<span class="line"><span style="color:#868B9D">-- Case study: exact expected-value model of the live catch logic, used to check bait pricing.</span></span>
+<span class="line"><span style="color:#868B9D">-- Read-only: requires the place's own data modules and computes. Writes nothing to the datamodel.</span></span>
+<span class="line"><span style="color:#868B9D">-- Run in Studio (Edit) via execute_luau in the Fish In A Pond development place.</span></span>
+<span class="line"><span style="color:#868B9D">--</span></span>
+<span class="line"><span style="color:#868B9D">-- Mirrors StarterPack.rodTool.FishingRod_Server (RandomFish, GetRandomMutations, weight roll)</span></span>
+<span class="line"><span style="color:#868B9D">-- and FishFunctions:CalculateWorth. Assumptions are listed in bait-model-results.md.</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">local</span><span style="color:#BCBEC8"> RS = </span><span style="color:#8FB4FF">game</span><span style="color:#BCBEC8">:</span><span style="color:#FAE4AA">GetService</span><span style="color:#BCBEC8">(</span><span style="color:#8EE9B6">"ReplicatedStorage"</span><span style="color:#BCBEC8">)</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">local</span><span style="color:#BCBEC8"> Pools = </span><span style="color:#8FB4FF">require</span><span style="color:#BCBEC8">(RS.</span><span style="color:#70A0FF">CurrentPools</span><span style="color:#BCBEC8">)</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">local</span><span style="color:#BCBEC8"> pool = Pools:</span><span style="color:#FAE4AA">GetPool</span><span style="color:#BCBEC8">(</span><span style="color:#8EE9B6">"NormalPondFish"</span><span style="color:#BCBEC8">)</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">local</span><span style="color:#BCBEC8"> Mut = </span><span style="color:#8FB4FF">require</span><span style="color:#BCBEC8">(RS.</span><span style="color:#70A0FF">Dictionaries</span><span style="color:#BCBEC8">.</span><span style="color:#70A0FF">FishSkinThemes</span><span style="color:#BCBEC8">)</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">local</span><span style="color:#BCBEC8"> baits = Pools:</span><span style="color:#FAE4AA">GetPool</span><span style="color:#BCBEC8">(</span><span style="color:#8EE9B6">"BaitShop"</span><span style="color:#BCBEC8">)</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">local</span><span style="color:#BCBEC8"> N = #pool</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">local</span><span style="color:#BCBEC8"> out = {}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#868B9D">-- Fish ladder, exact. Live code walks the pool in order; fish i passes if a coin flip succeeds</span></span>
+<span class="line"><span style="color:#868B9D">-- OR random()*(i-1) &#x3C;= luck; the walk stops at the first failure and the last pass is the catch.</span></span>
+<span class="line"><span style="color:#868B9D">-- P(pass j) = 0.5 + 0.5 * min(1, L/(j-1)); fish 1 always passes.</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">local</span><span style="color:#EB7973;font-weight:bold"> function</span><span style="color:#FAE4AA"> ladder</span><span style="color:#BCBEC8">(L)</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">	local</span><span style="color:#BCBEC8"> P, reach = {}, </span><span style="color:#F2BA2A">1</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">	for</span><span style="color:#BCBEC8"> i = </span><span style="color:#F2BA2A">1</span><span style="color:#BCBEC8">, N </span><span style="color:#EB7973;font-weight:bold">do</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">		local</span><span style="color:#BCBEC8"> pnext = (i &#x3C; N) </span><span style="color:#EB7973;font-weight:bold">and</span><span style="color:#BCBEC8"> (</span><span style="color:#F2BA2A">0.5</span><span style="color:#BCBEC8"> + </span><span style="color:#F2BA2A">0.5</span><span style="color:#BCBEC8"> * </span><span style="color:#8FB4FF">math.min</span><span style="color:#BCBEC8">(</span><span style="color:#F2BA2A">1</span><span style="color:#BCBEC8">, L / i)) </span><span style="color:#EB7973;font-weight:bold">or</span><span style="color:#F2BA2A"> 0</span></span>
+<span class="line"><span style="color:#BCBEC8">		P[i] = reach * (</span><span style="color:#F2BA2A">1</span><span style="color:#BCBEC8"> - pnext)</span></span>
+<span class="line"><span style="color:#BCBEC8">		reach *= pnext</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">	end</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">	return</span><span style="color:#BCBEC8"> P</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">end</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#868B9D">-- Mutations, exact over all 2^8 subsets. Each mutation hits when a geometric "roll" >= Rarity,</span></span>
+<span class="line"><span style="color:#868B9D">-- which has probability 0.5^(Rarity-1). Exclusion cleaning is a copy of the live function.</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">local</span><span style="color:#BCBEC8"> ids = {}</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">for</span><span style="color:#BCBEC8"> id </span><span style="color:#EB7973;font-weight:bold">in</span><span style="color:#8FB4FF"> pairs</span><span style="color:#BCBEC8">(Mut) </span><span style="color:#EB7973;font-weight:bold">do</span><span style="color:#BCBEC8"> ids[#ids + </span><span style="color:#F2BA2A">1</span><span style="color:#BCBEC8">] = id </span><span style="color:#EB7973;font-weight:bold">end</span></span>
+<span class="line"><span style="color:#8FB4FF">table.sort</span><span style="color:#BCBEC8">(ids)</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">local</span><span style="color:#EB7973;font-weight:bold"> function</span><span style="color:#FAE4AA"> clean</span><span style="color:#BCBEC8">(list)</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">	local</span><span style="color:#BCBEC8"> best = {}</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">	for</span><span style="color:#BCBEC8"> _, id </span><span style="color:#EB7973;font-weight:bold">in</span><span style="color:#8FB4FF"> ipairs</span><span style="color:#BCBEC8">(list) </span><span style="color:#EB7973;font-weight:bold">do</span><span style="color:#EB7973;font-weight:bold"> if</span><span style="color:#BCBEC8"> Mut[id] </span><span style="color:#EB7973;font-weight:bold">then</span><span style="color:#BCBEC8"> best[id] = </span><span style="color:#F2BA2A;font-weight:bold">true</span><span style="color:#EB7973;font-weight:bold"> end</span><span style="color:#EB7973;font-weight:bold"> end</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">	for</span><span style="color:#BCBEC8"> a </span><span style="color:#EB7973;font-weight:bold">in</span><span style="color:#8FB4FF"> pairs</span><span style="color:#BCBEC8">(best) </span><span style="color:#EB7973;font-weight:bold">do</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">		for</span><span style="color:#BCBEC8"> b </span><span style="color:#EB7973;font-weight:bold">in</span><span style="color:#8FB4FF"> pairs</span><span style="color:#BCBEC8">(best) </span><span style="color:#EB7973;font-weight:bold">do</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">			if</span><span style="color:#BCBEC8"> a ~= b </span><span style="color:#EB7973;font-weight:bold">then</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">				local</span><span style="color:#BCBEC8"> A, B = Mut[a], Mut[b]</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">				if</span><span style="color:#8FB4FF"> table.find</span><span style="color:#BCBEC8">(A.</span><span style="color:#70A0FF">Exludes</span><span style="color:#BCBEC8">, b) </span><span style="color:#EB7973;font-weight:bold">or</span><span style="color:#8FB4FF"> table.find</span><span style="color:#BCBEC8">(B.</span><span style="color:#70A0FF">Exludes</span><span style="color:#BCBEC8">, a) </span><span style="color:#EB7973;font-weight:bold">then</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">					if</span><span style="color:#BCBEC8"> A.</span><span style="color:#70A0FF">Multiplier</span><span style="color:#BCBEC8"> > B.</span><span style="color:#70A0FF">Multiplier</span><span style="color:#EB7973;font-weight:bold"> then</span><span style="color:#BCBEC8"> best[b] = </span><span style="color:#F2BA2A;font-weight:bold">nil</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">					elseif</span><span style="color:#BCBEC8"> B.</span><span style="color:#70A0FF">Multiplier</span><span style="color:#BCBEC8"> > A.</span><span style="color:#70A0FF">Multiplier</span><span style="color:#EB7973;font-weight:bold"> then</span><span style="color:#BCBEC8"> best[a] = </span><span style="color:#F2BA2A;font-weight:bold">nil</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">					else</span><span style="color:#BCBEC8"> best[b] = </span><span style="color:#F2BA2A;font-weight:bold">nil</span><span style="color:#EB7973;font-weight:bold"> end</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">				end</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">			end</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">		end</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">	end</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">	local</span><span style="color:#BCBEC8"> k = {}</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">	for</span><span style="color:#BCBEC8"> id </span><span style="color:#EB7973;font-weight:bold">in</span><span style="color:#8FB4FF"> pairs</span><span style="color:#BCBEC8">(best) </span><span style="color:#EB7973;font-weight:bold">do</span><span style="color:#BCBEC8"> k[#k + </span><span style="color:#F2BA2A">1</span><span style="color:#BCBEC8">] = id </span><span style="color:#EB7973;font-weight:bold">end</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">	return</span><span style="color:#BCBEC8"> k</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">end</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">local</span><span style="color:#BCBEC8"> Emult, Pany = </span><span style="color:#F2BA2A">0</span><span style="color:#BCBEC8">, </span><span style="color:#F2BA2A">0</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">for</span><span style="color:#BCBEC8"> mask = </span><span style="color:#F2BA2A">0</span><span style="color:#BCBEC8">, (</span><span style="color:#F2BA2A">2</span><span style="color:#BCBEC8"> ^ #ids) - </span><span style="color:#F2BA2A">1</span><span style="color:#EB7973;font-weight:bold"> do</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">	local</span><span style="color:#BCBEC8"> p, chosen = </span><span style="color:#F2BA2A">1</span><span style="color:#BCBEC8">, {}</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">	for</span><span style="color:#BCBEC8"> bit, id </span><span style="color:#EB7973;font-weight:bold">in</span><span style="color:#8FB4FF"> ipairs</span><span style="color:#BCBEC8">(ids) </span><span style="color:#EB7973;font-weight:bold">do</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">		local</span><span style="color:#BCBEC8"> pi = </span><span style="color:#F2BA2A">0.5</span><span style="color:#BCBEC8"> ^ (Mut[id].</span><span style="color:#70A0FF">Rarity</span><span style="color:#BCBEC8"> - </span><span style="color:#F2BA2A">1</span><span style="color:#BCBEC8">)</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">		if</span><span style="color:#8FB4FF"> math.floor</span><span style="color:#BCBEC8">(mask / </span><span style="color:#F2BA2A">2</span><span style="color:#BCBEC8"> ^ (bit - </span><span style="color:#F2BA2A">1</span><span style="color:#BCBEC8">)) % </span><span style="color:#F2BA2A">2</span><span style="color:#BCBEC8"> == </span><span style="color:#F2BA2A">1</span><span style="color:#EB7973;font-weight:bold"> then</span><span style="color:#BCBEC8"> p *= pi chosen[#chosen + </span><span style="color:#F2BA2A">1</span><span style="color:#BCBEC8">] = id </span><span style="color:#EB7973;font-weight:bold">else</span><span style="color:#BCBEC8"> p *= (</span><span style="color:#F2BA2A">1</span><span style="color:#BCBEC8"> - pi) </span><span style="color:#EB7973;font-weight:bold">end</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">	end</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">	local</span><span style="color:#BCBEC8"> kept = </span><span style="color:#FAE4AA">clean</span><span style="color:#BCBEC8">(chosen)</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">	local</span><span style="color:#BCBEC8"> s = </span><span style="color:#F2BA2A">1</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">	for</span><span style="color:#BCBEC8"> _, id </span><span style="color:#EB7973;font-weight:bold">in</span><span style="color:#8FB4FF"> ipairs</span><span style="color:#BCBEC8">(kept) </span><span style="color:#EB7973;font-weight:bold">do</span><span style="color:#BCBEC8"> s += Mut[id].</span><span style="color:#70A0FF">Multiplier</span><span style="color:#EB7973;font-weight:bold"> end</span></span>
+<span class="line"><span style="color:#BCBEC8">	Emult += p * s</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">	if</span><span style="color:#BCBEC8"> #kept > </span><span style="color:#F2BA2A">0</span><span style="color:#EB7973;font-weight:bold"> then</span><span style="color:#BCBEC8"> Pany += p </span><span style="color:#EB7973;font-weight:bold">end</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">end</span></span>
+<span class="line"><span style="color:#BCBEC8">out[#out + </span><span style="color:#F2BA2A">1</span><span style="color:#BCBEC8">] = </span><span style="color:#8FB4FF">string.format</span><span style="color:#BCBEC8">(</span><span style="color:#8EE9B6">"E[mutation multiplier]=%.4f  P(any mutation)=%.4f"</span><span style="color:#BCBEC8">, Emult, Pany)</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#868B9D">-- Weight factor: Monte Carlo, seeded so the run is reproducible.</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">local</span><span style="color:#BCBEC8"> rng = Random.</span><span style="color:#FAE4AA">new</span><span style="color:#BCBEC8">(</span><span style="color:#F2BA2A">20261121</span><span style="color:#BCBEC8">)</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">local</span><span style="color:#EB7973;font-weight:bold"> function</span><span style="color:#FAE4AA"> wmult</span><span style="color:#BCBEC8">()</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">	local</span><span style="color:#BCBEC8"> sign = (rng:</span><span style="color:#FAE4AA">NextInteger</span><span style="color:#BCBEC8">(</span><span style="color:#F2BA2A">0</span><span style="color:#BCBEC8">, </span><span style="color:#F2BA2A">1</span><span style="color:#BCBEC8">) == </span><span style="color:#F2BA2A">1</span><span style="color:#BCBEC8">) </span><span style="color:#EB7973;font-weight:bold">and</span><span style="color:#F2BA2A"> 1</span><span style="color:#EB7973;font-weight:bold"> or</span><span style="color:#BCBEC8"> -</span><span style="color:#F2BA2A">1</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">	local</span><span style="color:#BCBEC8"> W = </span><span style="color:#8FB4FF">math.max</span><span style="color:#BCBEC8">((sign * rng:</span><span style="color:#FAE4AA">NextNumber</span><span style="color:#BCBEC8">() + </span><span style="color:#F2BA2A">0.55</span><span style="color:#BCBEC8"> + </span><span style="color:#F2BA2A">1</span><span style="color:#BCBEC8">) * ((rng:</span><span style="color:#FAE4AA">NextNumber</span><span style="color:#BCBEC8">() &#x3C; </span><span style="color:#F2BA2A">0.005</span><span style="color:#BCBEC8">) </span><span style="color:#EB7973;font-weight:bold">and</span><span style="color:#BCBEC8"> rng:</span><span style="color:#FAE4AA">NextNumber</span><span style="color:#BCBEC8">() * </span><span style="color:#F2BA2A">2</span><span style="color:#EB7973;font-weight:bold"> or</span><span style="color:#F2BA2A"> 1</span><span style="color:#BCBEC8">), </span><span style="color:#F2BA2A">0.4</span><span style="color:#BCBEC8">)</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">	return</span><span style="color:#8FB4FF"> math.max</span><span style="color:#BCBEC8">(</span><span style="color:#F2BA2A">1</span><span style="color:#BCBEC8">, W * </span><span style="color:#F2BA2A">0.25</span><span style="color:#BCBEC8"> + </span><span style="color:#F2BA2A">0.75</span><span style="color:#BCBEC8">) </span><span style="color:#868B9D">-- CalculateWorth: max(1, (Weight/BaseWeight)*.25 + .75)</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">end</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">local</span><span style="color:#BCBEC8"> sw, M = </span><span style="color:#F2BA2A">0</span><span style="color:#BCBEC8">, </span><span style="color:#F2BA2A">200000</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">for</span><span style="color:#BCBEC8"> _ = </span><span style="color:#F2BA2A">1</span><span style="color:#BCBEC8">, M </span><span style="color:#EB7973;font-weight:bold">do</span><span style="color:#BCBEC8"> sw += </span><span style="color:#FAE4AA">wmult</span><span style="color:#BCBEC8">() </span><span style="color:#EB7973;font-weight:bold">end</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">local</span><span style="color:#BCBEC8"> Ew = sw / M</span></span>
+<span class="line"><span style="color:#BCBEC8">out[#out + </span><span style="color:#F2BA2A">1</span><span style="color:#BCBEC8">] = </span><span style="color:#8FB4FF">string.format</span><span style="color:#BCBEC8">(</span><span style="color:#8EE9B6">"E[weight value factor]=%.4f (%d draws)"</span><span style="color:#BCBEC8">, Ew, M)</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#868B9D">-- Value = BaseValue * (1 + sum(mutation mult)) * weightFactor; the three are independent,</span></span>
+<span class="line"><span style="color:#868B9D">-- so the expectation is the product of expectations.</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">local</span><span style="color:#EB7973;font-weight:bold"> function</span><span style="color:#FAE4AA"> EV</span><span style="color:#BCBEC8">(L)</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">	local</span><span style="color:#BCBEC8"> P = </span><span style="color:#FAE4AA">ladder</span><span style="color:#BCBEC8">(L)</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">	local</span><span style="color:#BCBEC8"> s = </span><span style="color:#F2BA2A">0</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">	for</span><span style="color:#BCBEC8"> i = </span><span style="color:#F2BA2A">1</span><span style="color:#BCBEC8">, N </span><span style="color:#EB7973;font-weight:bold">do</span><span style="color:#BCBEC8"> s += P[i] * pool[i].</span><span style="color:#70A0FF">BaseValue</span><span style="color:#EB7973;font-weight:bold"> end</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">	return</span><span style="color:#BCBEC8"> s * Emult * Ew, P</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">end</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#868B9D">-- Cross-check: simulate the ladder exactly as the live code does, 20,000 casts.</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">local</span><span style="color:#EB7973;font-weight:bold"> function</span><span style="color:#FAE4AA"> mcLadder</span><span style="color:#BCBEC8">(L,</span><span style="color:#BCBEC8"> casts)</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">	local</span><span style="color:#BCBEC8"> sum = </span><span style="color:#F2BA2A">0</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">	for</span><span style="color:#BCBEC8"> _ = </span><span style="color:#F2BA2A">1</span><span style="color:#BCBEC8">, casts </span><span style="color:#EB7973;font-weight:bold">do</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">		local</span><span style="color:#BCBEC8"> prev</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">		for</span><span style="color:#BCBEC8"> i = </span><span style="color:#F2BA2A">1</span><span style="color:#BCBEC8">, N </span><span style="color:#EB7973;font-weight:bold">do</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">			local</span><span style="color:#BCBEC8"> checkPassed = rng:</span><span style="color:#FAE4AA">NextInteger</span><span style="color:#BCBEC8">(</span><span style="color:#F2BA2A">0</span><span style="color:#BCBEC8">, </span><span style="color:#F2BA2A">1</span><span style="color:#BCBEC8">) == </span><span style="color:#F2BA2A">1</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">			local</span><span style="color:#BCBEC8"> luckPassed = rng:</span><span style="color:#FAE4AA">NextNumber</span><span style="color:#BCBEC8">() * (i - </span><span style="color:#F2BA2A">1</span><span style="color:#BCBEC8">) &#x3C;= L</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">			if</span><span style="color:#EB7973;font-weight:bold"> not</span><span style="color:#BCBEC8"> checkPassed </span><span style="color:#EB7973;font-weight:bold">and</span><span style="color:#EB7973;font-weight:bold"> not</span><span style="color:#BCBEC8"> luckPassed </span><span style="color:#EB7973;font-weight:bold">then</span><span style="color:#EB7973;font-weight:bold"> break</span><span style="color:#EB7973;font-weight:bold"> end</span></span>
+<span class="line"><span style="color:#BCBEC8">			prev = i</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">		end</span></span>
+<span class="line"><span style="color:#BCBEC8">		sum += pool[prev].</span><span style="color:#70A0FF">BaseValue</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">	end</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">	return</span><span style="color:#BCBEC8"> sum / casts</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">end</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">for</span><span style="color:#BCBEC8"> _, L </span><span style="color:#EB7973;font-weight:bold">in</span><span style="color:#8FB4FF"> ipairs</span><span style="color:#BCBEC8">({ </span><span style="color:#F2BA2A">0.75</span><span style="color:#BCBEC8">, </span><span style="color:#F2BA2A">5.5</span><span style="color:#BCBEC8"> }) </span><span style="color:#EB7973;font-weight:bold">do</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">	local</span><span style="color:#BCBEC8"> _, P = </span><span style="color:#FAE4AA">EV</span><span style="color:#BCBEC8">(L)</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">	local</span><span style="color:#BCBEC8"> analytic = </span><span style="color:#F2BA2A">0</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">	for</span><span style="color:#BCBEC8"> i = </span><span style="color:#F2BA2A">1</span><span style="color:#BCBEC8">, N </span><span style="color:#EB7973;font-weight:bold">do</span><span style="color:#BCBEC8"> analytic += P[i] * pool[i].</span><span style="color:#70A0FF">BaseValue</span><span style="color:#EB7973;font-weight:bold"> end</span></span>
+<span class="line"><span style="color:#BCBEC8">	out[#out + </span><span style="color:#F2BA2A">1</span><span style="color:#BCBEC8">] = </span><span style="color:#8FB4FF">string.format</span><span style="color:#BCBEC8">(</span><span style="color:#8EE9B6">"LADDER CHECK L=%.2f analytic=%.2f MC(20k)=%.2f"</span><span style="color:#BCBEC8">, L, analytic, </span><span style="color:#FAE4AA">mcLadder</span><span style="color:#BCBEC8">(L, </span><span style="color:#F2BA2A">20000</span><span style="color:#BCBEC8">))</span></span>
+<span class="line"><span style="color:#8FB4FF">	task.wait</span><span style="color:#BCBEC8">()</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">end</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">local</span><span style="color:#BCBEC8"> ev0 = </span><span style="color:#FAE4AA">EV</span><span style="color:#BCBEC8">(</span><span style="color:#F2BA2A">0</span><span style="color:#BCBEC8">)</span></span>
+<span class="line"><span style="color:#BCBEC8">out[#out + </span><span style="color:#F2BA2A">1</span><span style="color:#BCBEC8">] = </span><span style="color:#8FB4FF">string.format</span><span style="color:#BCBEC8">(</span><span style="color:#8EE9B6">"EV per cast, luck 0 = %.2f"</span><span style="color:#BCBEC8">, ev0)</span></span>
+<span class="line"><span style="color:#BCBEC8">out[#out + </span><span style="color:#F2BA2A">1</span><span style="color:#BCBEC8">] = </span><span style="color:#8EE9B6">"bait | price | luck | secs | EV/cast | gain/cast | breakeven casts"</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">for</span><span style="color:#BCBEC8"> _, b </span><span style="color:#EB7973;font-weight:bold">in</span><span style="color:#8FB4FF"> ipairs</span><span style="color:#BCBEC8">(baits) </span><span style="color:#EB7973;font-weight:bold">do</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">	local</span><span style="color:#BCBEC8"> L = b.</span><span style="color:#70A0FF">Luck</span><span style="color:#BCBEC8">.</span><span style="color:#70A0FF">Amount</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">	local</span><span style="color:#BCBEC8"> gain = </span><span style="color:#FAE4AA">EV</span><span style="color:#BCBEC8">(L) - ev0</span></span>
+<span class="line"><span style="color:#BCBEC8">	out[#out + </span><span style="color:#F2BA2A">1</span><span style="color:#BCBEC8">] = </span><span style="color:#8FB4FF">string.format</span><span style="color:#BCBEC8">(</span><span style="color:#8EE9B6">"%-13s %8d %4.2f %4d %9.1f %9.1f %8.1f"</span><span style="color:#BCBEC8">, b.</span><span style="color:#70A0FF">Id</span><span style="color:#BCBEC8">, b.</span><span style="color:#70A0FF">Price</span><span style="color:#BCBEC8">, L, b.</span><span style="color:#70A0FF">Luck</span><span style="color:#BCBEC8">.</span><span style="color:#70A0FF">Time</span><span style="color:#BCBEC8">, </span><span style="color:#FAE4AA">EV</span><span style="color:#BCBEC8">(L), gain, b.</span><span style="color:#70A0FF">Price</span><span style="color:#BCBEC8"> / gain)</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">end</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">return</span><span style="color:#8FB4FF"> table.concat</span><span style="color:#BCBEC8">(out, </span><span style="color:#8EE9B6">"\n"</span><span style="color:#BCBEC8">)</span></span></code></pre>
+  <div class="ide-status">Luau · 124 lines · nonstrict</div>
+</div>
+  <p class="note"><a href="../examples/bait-model/bait-model.luau">Raw file (bait-model.luau)</a> &middot; Highlighting by <a href="https://shiki.style/">Shiki</a> with the Roblox Studio dark theme by Ryan Luu (MIT). Token rules come from a TextMate grammar, so a few tokens differ from Studio. The comment colour is slightly lightened for legibility.</p>
+</main>
+</body>
+</html>

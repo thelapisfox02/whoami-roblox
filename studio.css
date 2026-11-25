@@ -1,0 +1,277 @@
+/* Studio-inspired theme. Dark palette: Roblox Studio's current dark ("Foundation") colours; light palette: Studio's
+   default light theme. Both from the MIT-licensed ryanlua/roblox-studio-vscode-theme. Fonts: Source Sans 3 (UI) and
+   Fira Mono (code).
+
+   Theme: follows the system setting; theme.js lets the visitor force Light or Dark (html[data-theme]).
+   Deviations from Studio's own values, for contrast (WCAG AA 4.5:1): light link #528BFF -> #2A52E0; button hover
+   #528BFF -> #2449D6; light draft and label colours are darker than Studio's; dark code comments and chrome text lighter.
+
+   Rules for this file (from the AI-slop research, see roblox-portfolio-stage5-deslop.md):
+   - Borrow Studio's colours, type and panel structure. Never its jargon, icons or fake controls.
+   - Corners by role: docked panels, frames, tables and video are square (as in Studio); controls are 3px; nothing else.
+   - A box only where there is a real panel: Explorer, key numbers, code frames. Entries are grouped by space and a hairline.
+   - No pills, no side stripes, no shadows, no gradients, no decorative icons, no eyebrows.
+   - Blue means interactive: links, the one primary button, selection. Authorship labels use the editor's green/amber. */
+:root {
+  color-scheme: dark;
+  --editor: #202227;
+  --panel: #191a1f;
+  --menu: #272930;
+  --raised: #353741;
+  --input: #282931;
+  --line: #2f323b;
+  --text: #bcbec8;
+  --bright: #ffffff;
+  --dim: #8e92a3;
+  --accent: #335fff;
+  --accent-hi: #528bff;
+  --accent-hover: #2449d6;
+  --link: #528bff;
+  --select: #13235d;
+  --on-select: #ffffff;
+  --warn: #f57630;
+  --todo-bg: rgba(245, 118, 48, 0.1);
+  --str: #8ee9b6;
+  --num: #f2ba2a;
+  --prop: #70a0ff;
+  --code: #8fb4ff;
+  --ui: "Source Sans 3", "Source Sans Pro", "Segoe UI", system-ui, -apple-system, Roboto, sans-serif;
+  --mono: "Fira Mono", Consolas, "Courier New", monospace;
+  --ribbon-h: 40px;
+  --r-control: 3px;
+}
+/* The light block appears twice (system preference, explicit choice) because CSS cannot share one block between a
+   media query and an attribute selector. Keep the two in step. */
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+  color-scheme: light;
+    --editor: #ffffff;
+    --panel: #f7f7f8;
+    --menu: #e6e7ea;
+    --raised: #e6e7ea;
+    --input: #eeeff1;
+    --line: #cfd2d9;
+    --text: #1a1c21;
+    --bright: #000000;
+    --dim: #596072;
+    --accent: #335fff;
+    --accent-hi: #335fff;
+    --accent-hover: #2449d6;
+    --link: #2a52e0;
+    --select: #d0dafe;
+    --on-select: #000000;
+    --warn: #9a3f00;
+    --todo-bg: rgba(245, 118, 48, 0.18);
+    --str: #015f35;
+    --num: #7d5a00;
+    --prop: #335fff;
+    --code: #001b7a;
+  }
+}
+:root[data-theme="light"] {
+  color-scheme: light;
+  --editor: #ffffff;
+  --panel: #f7f7f8;
+  --menu: #e6e7ea;
+  --raised: #e6e7ea;
+  --input: #eeeff1;
+  --line: #cfd2d9;
+  --text: #1a1c21;
+  --bright: #000000;
+  --dim: #596072;
+  --accent: #335fff;
+  --accent-hi: #335fff;
+  --accent-hover: #2449d6;
+  --link: #2a52e0;
+  --select: #d0dafe;
+  --on-select: #000000;
+  --warn: #9a3f00;
+  --todo-bg: rgba(245, 118, 48, 0.18);
+  --str: #015f35;
+  --num: #7d5a00;
+  --prop: #335fff;
+  --code: #001b7a;
+}
+* { box-sizing: border-box; }
+html { scroll-padding-top: 56px; }
+@media (prefers-reduced-motion: no-preference) { html { scroll-behavior: smooth; } }
+body { margin: 0; background: var(--editor); color: var(--text); font: 17px/1.55 var(--ui); }
+::selection { background: var(--select); color: var(--on-select); }
+a { color: var(--link); text-underline-offset: 2px; }
+a:hover { color: var(--code); }
+:focus-visible { outline: 2px solid var(--accent-hi); outline-offset: 2px; }
+[id] { scroll-margin-top: 56px; }
+
+.skip { position: absolute; left: -9999px; }
+.skip:focus { left: 8px; top: 8px; z-index: 100; background: var(--accent); color: #fff; padding: 8px 12px; border-radius: var(--r-control); }
+
+.titlebar { display: flex; align-items: center; justify-content: space-between; height: 36px; padding: 0 16px; background: var(--panel); border-bottom: 1px solid var(--line); font-size: 15px; }
+.titlebar .app { color: var(--bright); font-weight: 600; text-decoration: none; }
+.themebtn { padding: 2px 10px; border: 1px solid var(--line); border-radius: var(--r-control); background: transparent; color: var(--text); font: inherit; font-size: 14px; cursor: pointer; }
+.themebtn:hover { background: var(--raised); color: var(--bright); }
+
+.ribbon { position: sticky; top: 0; z-index: 50; height: var(--ribbon-h); background: var(--panel); border-bottom: 1px solid var(--line); }
+.ribbon ul { display: flex; height: 100%; margin: 0; padding: 0 8px; list-style: none; overflow-x: auto; scrollbar-width: none; }
+.ribbon ul::-webkit-scrollbar { display: none; }
+.ribbon a { display: block; height: 100%; padding: 0 16px; line-height: 39px; color: var(--dim); text-decoration: none; white-space: nowrap; font-size: 16px; }
+.ribbon a:hover { background: var(--raised); color: var(--text); }
+.ribbon a[aria-current] { background: var(--editor); color: var(--bright); box-shadow: inset 0 2px 0 var(--prop); }
+
+.workspace { display: grid; grid-template-columns: 272px minmax(0, 1fr); align-items: start; }
+
+/* Explorer: a real tree. The triangle toggles; the label navigates. */
+.explorer { position: sticky; top: var(--ribbon-h); height: calc(100vh - var(--ribbon-h)); overflow-y: auto; background: var(--panel); border-right: 1px solid var(--line); }
+.panel-title { margin: 0; padding: 8px 12px; background: var(--menu); border-bottom: 1px solid var(--line); color: var(--bright); font-size: 14px; font-weight: 600; }
+.panel-title span { margin-left: 8px; color: var(--dim); font-weight: 400; }
+.tree, .tree ul { margin: 0; padding: 0; list-style: none; }
+.tree { padding: 6px 0 24px; }
+.tree summary { list-style: none; }
+.tree summary::-webkit-details-marker { display: none; }
+.row { display: flex; align-items: center; min-height: 26px; color: var(--text); font-size: 15px; line-height: 22px; }
+.row a { flex: 1; min-width: 0; padding: 2px 12px 2px 0; color: inherit; text-decoration: none; }
+.row:hover { background: var(--raised); }
+.row:has([aria-current]), .row[aria-current] { background: var(--select); color: var(--bright); }
+.row.child { padding: 2px 12px 2px 34px; }
+a.row, a.row:hover { color: var(--text); text-decoration: none; }
+a.row[aria-current] { color: var(--bright); }
+.twisty { flex: none; display: grid; place-items: center; width: 26px; height: 26px; margin-left: 4px; cursor: pointer; }
+.twisty::before { content: ""; border-left: 4px solid transparent; border-right: 4px solid transparent; border-top: 5px solid var(--dim); }
+details:not([open]) > summary .twisty::before { transform: rotate(-90deg); }
+.twisty:hover::before { border-top-color: var(--bright); }
+.twisty.none { cursor: default; }
+.twisty.none::before { display: none; }
+
+.document { min-width: 0; }
+.col { max-width: 900px; margin: 0 auto; padding: 0 32px; }
+
+.hero { padding-top: 44px; padding-bottom: 8px; }
+h1 { margin: 0 0 14px; color: var(--bright); font-size: clamp(30px, 4.6vw, 46px); font-weight: 700; line-height: 1.12; letter-spacing: -0.01em; }
+.lead { max-width: 660px; margin: 0 0 24px; color: var(--text); font-size: 19px; }
+.cta { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 24px; margin: 0 0 32px; }
+.btn { display: inline-block; padding: 8px 22px; border-radius: var(--r-control); border: 1px solid var(--accent); background: var(--accent); color: #fff; font-weight: 600; text-decoration: none; }
+.btn:hover { background: var(--accent-hover); border-color: var(--accent-hover); color: #fff; }
+.textlink { color: var(--link); }
+
+/* Key numbers: a Properties-style panel. Square, one border. */
+.props { width: 100%; margin: 0 0 8px; border-collapse: collapse; background: var(--editor); border: 1px solid var(--line); }
+.props caption { caption-side: top; padding: 8px 14px; text-align: left; background: var(--menu); color: var(--bright); font-size: 14px; font-weight: 600; border: 1px solid var(--line); border-bottom: 0; }
+.props th, .props td { padding: 7px 14px; border-top: 1px solid var(--line); text-align: left; vertical-align: baseline; }
+.props tr:first-child > * { border-top: 0; }
+.props th { width: 60%; color: var(--dim); font-weight: 400; font-size: 16px; }
+.props td { color: var(--bright); font-weight: 700; font-size: 18px; font-variant-numeric: tabular-nums; }
+
+/* Sections are separated by space, not boxes or rules. */
+section { padding: 56px 0 0; }
+h2 { margin: 0 0 18px; color: var(--bright); font-size: 26px; font-weight: 700; line-height: 1.2; }
+section p, section ul { margin-top: 0; }
+.plain { padding-left: 22px; }
+
+/* Entries: no box. Heading, a plain meta line, body. A hairline separates neighbours. */
+.card { margin: 0; padding: 0; }
+.card + .card { margin-top: 32px; padding-top: 32px; border-top: 1px solid var(--line); }
+.card > h3 { margin: 0 0 2px; color: var(--bright); font-size: 21px; font-weight: 600; line-height: 1.3; }
+.meta { margin: 0 0 12px; color: var(--dim); font-size: 15px; }
+.card > p { margin: 12px 0; }
+.card > ul { margin: 8px 0 12px; padding-left: 20px; }
+.card > .ide, .card > .clip { margin: 16px 0; }
+.label { margin-bottom: 0; color: var(--dim); font-size: 14px; font-weight: 600; }
+.section-note, .note { color: var(--dim); font-size: 15px; }
+code { padding: 0 4px; border-radius: 2px; background: var(--input); color: var(--code); font: 0.88em var(--mono); }
+.chips { display: flex; flex-wrap: wrap; gap: 4px 20px; margin: 0 0 12px; padding: 0; list-style: none; }
+.chips li { font-size: 16px; }
+
+/* Draft placeholders: a status marker for the author, removed before launch. */
+.todo { padding: 0 4px; border-radius: 2px; background: var(--todo-bg); color: var(--warn); }
+
+.clip video { display: block; width: 100%; height: auto; background: #000; }
+.clip figcaption { margin-top: 6px; color: var(--dim); font-size: 14px; }
+
+/* Code frames come from code.css. They are windows: square, one border, UI font on their chrome. */
+.ide { border-radius: 0; }
+.ide-tabs, .ide-status { font-family: var(--ui); }
+
+.foot { margin-top: 72px; padding: 20px 0 36px; border-top: 1px solid var(--line); color: var(--dim); font-size: 14px; }
+.foot p { margin: 0 0 4px; }
+
+@media (max-width: 899px) {
+  .workspace { display: block; }
+  .explorer { display: none; }
+  .col { padding-left: 16px; padding-right: 16px; }
+  .props th { width: 56%; }
+  .titlebar { padding: 0 16px; }
+  section { padding-top: 44px; }
+}
+
+/* Standalone code pages (code/*.html) share the shell: title bar, one column. */
+.codepage .col { max-width: 960px; padding-top: 28px; padding-bottom: 56px; }
+.codepage h1 { margin-bottom: 4px; font-size: 30px; }
+.codepage .meta { margin-bottom: 16px; }
+.back { margin: 0 0 20px; font-size: 15px; }
+
+/* From 900px the Explorer is the navigation, so the ribbon (the phone navigation) is hidden. */
+@media (min-width: 900px) {
+  :root { --ribbon-h: 0px; }
+  .ribbon { display: none; }
+  html { scroll-padding-top: 16px; }
+  [id] { scroll-margin-top: 16px; }
+}
+
+/* ---- Site structure (start page, project pages) ---- */
+.col.wide { max-width: 1120px; }
+.row.grand, .row .grand { }
+.row.grand { padding: 2px 12px 2px 52px; color: var(--text); text-decoration: none; display: flex; align-items: center; min-height: 26px; font-size: 15px; line-height: 22px; }
+.row.grand:hover { background: var(--raised); }
+.tree ul ul li a.row.grand[aria-current] { background: var(--select); color: var(--bright); }
+.tree .row a[aria-current="page"] { color: var(--bright); font-weight: 600; }
+
+/* Start page: identity left, key numbers right, then the project tiles */
+.home .hero { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 24px 48px; align-items: start; padding-top: 32px; padding-bottom: 0; }
+.home h1 { font-size: clamp(30px, 3.6vw, 40px); }
+.home .hero .lead { margin-bottom: 20px; }
+.home .hero .cta { margin-bottom: 16px; }
+.home .props { margin: 4px 0 0; }
+.home .props th { width: auto; }
+#projects { padding-top: 36px; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 24px; margin: 0 0 20px; padding: 0; list-style: none; color: var(--dim); font-size: 15px; }
+.chip { display: inline-block; padding: 1px 10px; border-radius: 999px; background: var(--raised); color: var(--bright); font-size: 13px; font-weight: 600; line-height: 20px; white-space: nowrap; }
+.tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 24px; margin: 0; padding: 0; list-style: none; }
+/* Cards follow Studio's Experiences grid: image, tag chip, name, description. Studio's own cards are rounded, so these are too. */
+.tile { position: relative; display: flex; flex-direction: column; gap: 12px; padding: 12px; background: var(--panel); border-radius: 8px; }
+.tile:hover { background: var(--menu); }
+.tile:focus-within { outline: 2px solid var(--accent-hi); outline-offset: 2px; }
+.thumb { display: block; width: 100%; height: auto; aspect-ratio: 16 / 9; object-fit: cover; background: var(--menu); border-radius: 4px; }
+.cover { display: flex; align-items: center; padding: 16px 20px; }
+.cover ul { margin: 0; padding: 0 0 0 14px; border-left: 2px solid var(--line); list-style: none; font: 15px/1.7 var(--mono); color: var(--code); }
+.tile-body { display: flex; flex: 1; flex-direction: column; gap: 8px; }
+.chips-row { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; }
+.tile h3 { margin: 0; font-size: 20px; font-weight: 600; line-height: 1.25; }
+.tile h3 a { color: var(--bright); text-decoration: none; }
+.tile h3 a::after { content: ""; position: absolute; inset: 0; border-radius: 8px; }
+.tile h3 a:focus-visible { outline: none; }
+.tile .summary { margin: 0; color: var(--text); font-size: 15.5px; line-height: 1.5; }
+
+/* Project, About and Hire pages */
+.project-head { display: grid; grid-template-columns: minmax(0, 360px) minmax(0, 1fr); gap: 20px 28px; align-items: start; margin: 8px 0 0; }
+.project-head:not(:has(.hero-img)) { grid-template-columns: minmax(0, 520px); }
+.hero-img { display: block; width: 100%; height: auto; aspect-ratio: 16 / 9; object-fit: cover; border: 1px solid var(--line); }
+.project-head .props { margin: 0; }
+.project-head .props th { width: 34%; }
+.project-head .props td { font-size: 16px; font-weight: 600; }
+.project-head .props td .hand, .project-head .props td .ai { font-weight: 600; }
+.project > .lead { margin-top: 36px; }
+.project section:first-of-type { padding-top: 40px; }
+.project .lead + section { padding-top: 40px; }
+.project h3 { margin: 28px 0 2px; color: var(--bright); font-size: 21px; font-weight: 600; }
+.project .meta { margin: 0 0 12px; }
+.project .ide, .project .clip { margin: 16px 0; }
+.project ul { padding-left: 22px; }
+.project ul.chips { padding-left: 0; }
+.pager { display: flex; justify-content: space-between; gap: 16px; margin-top: 56px; padding-top: 20px; border-top: 1px solid var(--line); }
+
+@media (max-width: 899px) {
+  .home .hero { display: block; }
+  .home .props { margin-top: 20px; }
+  .project-head { display: block; }
+  .project-head .hero-img { margin-bottom: 16px; }
+  .tiles { grid-template-columns: 1fr; }
+}

@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark light">
+  <title>Fish In A Pond | TheLapisFox02</title>
+  <meta name="description" content="Fishing game with a data-driven upgrade tree and server-side fishing, plus a model of which baits pay for themselves.">
+  <link rel="stylesheet" href="../../fonts.css">
+  <link rel="stylesheet" href="../../code.css">
+  <link rel="stylesheet" href="../../studio.css">
+  <script src="../../theme.js"></script>
+  <script src="../../studio.js" defer></script>
+</head>
+<body class="">
+<a class="skip" href="#doc">Skip to content</a>
+
+<div class="titlebar">
+  <a class="app" href="../../index.html">TheLapisFox02</a>
+  <button class="themebtn" type="button" hidden>Theme: Auto</button>
+</div>
+<nav class="ribbon" aria-label="Site"><ul><li><a href="../../index.html">Home</a></li><li><a href="../../index.html#projects" aria-current="page">Projects</a></li><li><a href="../../about/">About</a></li><li><a href="../../hire/">Hire me</a></li></ul></nav>
+
+<div class="workspace">
+  <aside class="explorer" aria-label="Site">
+    <p class="panel-title">Explorer<span>whole site</span></p>
+    <ul class="tree"><li><div class="row"><span class="twisty none"></span><a href="../../index.html">Home</a></div></li><li><details open><summary class="row"><span class="twisty" title="Expand or collapse"></span><a href="../../index.html#projects">Projects</a></summary><ul><li><div class="row"><span class="twisty none"></span><a href="../../projects/paperface/">Paperface</a></div></li><li><div class="row"><span class="twisty none"></span><a href="../../projects/amusementpark/">Fårup Sommerland</a></div></li><li><details open><summary class="row"><span class="twisty" title="Expand or collapse"></span><a href="../../projects/fish-in-a-pond/" aria-current="page">Fish In A Pond</a></summary><ul><li><a class="row grand" href="#numbers">Numbers and analysis</a></li></ul></details></li><li><div class="row"><span class="twisty none"></span><a href="../../projects/roll-gems/">Roll Gems for Money</a></div></li><li><div class="row"><span class="twisty none"></span><a href="../../projects/betternotifications/">BetterNotifications</a></div></li><li><div class="row"><span class="twisty none"></span><a href="../../projects/wilted-suite/">WiltedSuite</a></div></li><li><div class="row"><span class="twisty none"></span><a href="../../projects/break-blocks/">Break Blocks for Money</a></div></li></ul></details></li><li><div class="row"><span class="twisty none"></span><a href="../../about/">About</a></div></li><li><div class="row"><span class="twisty none"></span><a href="../../hire/">Hire me</a></div></li></ul>
+  </aside>
+
+  <div class="document" id="doc">
+    <header class="hero col" id="top">
+      <p class="back"><a href="../../index.html#projects">&larr; All projects</a></p>
+      <h1>Fish In A Pond</h1>
+      <div class="project-head"><img class="hero-img" src="../../media/thumbs/fish-in-a-pond.jpg" width="640" height="360" alt=""><table class="props compact"><caption>Properties</caption><tbody><tr><th scope="row">Role</th><td>Lead and primary programmer, LolCo Games</td></tr><tr><th scope="row">Authorship</th><td><span class="hand">Handcrafted</span> &middot; <span class="ai">AI-assisted</span></td></tr><tr><th scope="row">Key number</th><td>77k visits</td></tr></tbody></table></div>
+    </header>
+    <main class="col project">
+<p class="lead">Fish In A Pond has 77,037 visits and 193 up / 25 down votes. It runs a data-driven upgrade tree, server-side fishing, daily quests, rotating shop stock, a world-event timer, analytics funnels and economy events. It is a LolCo Games project, a community of 510 members where I am the lead and primary programmer.</p>
+<p class="note"><a href="https://www.roblox.com/communities/16478778/LolCo-Games">LolCo Games on Roblox</a></p>
+
+<section id="numbers">
+<h2>Numbers and analysis</h2>
+<p>I like turning spreadsheets of game data into decisions: economy balance, progression curves, drop rates, where players stall.</p>
+<h3>Modelling drop luck and bait value</h3>
+<p class="meta"><span class="ai">AI-assisted analysis</span></p>
+<p>Question: does each timed luck bait pay for itself? Method: rebuilt the live catch logic from the game's own data (a rarity ladder, eight mutations with exclusion rules, a weight roll), solved the expected value exactly, and cross-checked it with a 20,000-cast simulation. The two agree (1,522.6 vs 1,520.2 at luck 5.5; 39.0 vs 38.0 at luck 0.75).</p>
+  <ul>
+    <li>Expected fish value per cast rises from 35 with no luck to 73, 233, 753 and 2,863 at luck 0.75, 2, 3.5 and 5.5.</li>
+    <li>Set against each bait's own time window (at least 3.75 s per cast), seven of fifteen baits cost more than a player can earn from them, even with every upgrade bought. The three top-luck baits return 5 to 13 cents per doubloon spent.</li>
+    <li>The older pricing script predated timed baits and referenced fields that no longer exist, so I replaced it with a model of the live code.</li>
+  </ul>
+  <p><a href="../../examples/bait-model/README.md">Case study</a> &middot; <a href="../../examples/bait-model/bait-model-results.md">results and assumptions</a> &middot; <a href="../../code/bait-model.html">model code</a></p>
+  <p>Outcome so far: no prices changed. Every bait also has a Robux product, so the doubloon price may be a deliberate sink; purchase analytics would settle which.</p>
+</section>
+
+      <nav class="pager" aria-label="Other projects">
+        <a href="../../projects/amusementpark/">&larr; Fårup Sommerland</a>
+        <a href="../../projects/roll-gems/">Roll Gems for Money &rarr;</a>
+      </nav>
+    </main>
+    <footer class="foot">
+      <div class="col">
+        <p>Last updated 24 November 2026. Stats pulled 2026-11-23 from the public Roblox API. Game images are the games' public Roblox thumbnails. Code highlighting: <a href="https://shiki.style/">Shiki</a>. Colours from the Roblox Studio default themes by Ryan Luu (MIT).</p>
+        <p>Layout inspired by Roblox Studio. Not affiliated with or endorsed by Roblox. Fonts: Source Sans 3 and Fira Mono (SIL Open Font License, <a href="../../fonts/NOTICE.txt">notice</a>).</p>
+      </div>
+    </footer>
+  </div>
+</div>
+</body>
+</html>

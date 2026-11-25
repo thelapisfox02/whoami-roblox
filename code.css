@@ -1,0 +1,70 @@
+/* Studio-style code frame. Always the Roblox Studio dark editor (background #202227), on light and dark pages alike,
+   so the token colours are the familiar ones. Token colours are written inline by Shiki; nothing here depends on
+   CSS variables, so the frame renders the same in any browser.
+   Legibility tweaks to Studio's values (WCAG AA 4.5:1): comments #868B9D (Studio #6A6F81 is 3.2:1), line numbers
+   #868B9D, tab and status text #8E92A3. */
+.ide {
+  background: #202227;
+  border: 1px solid #2f323b;
+  border-radius: 8px;
+  overflow: hidden;
+  margin: 14px 0;
+}
+.ide-tabs {
+  display: flex;
+  background: #17181c;
+  border-bottom: 1px solid #2f323b;
+  font: 13px/1 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+.ide-tab {
+  padding: 9px 14px;
+  background: #202227;
+  color: #bcbec8;
+  border-right: 1px solid #2f323b;
+  border-top: 2px solid #70a0ff;
+  margin-top: -1px;
+}
+.ide-tab small { color: #8e92a3; margin-left: 10px; font-size: 12px; }
+
+.ide pre.shiki {
+  margin: 0;
+  padding: 12px 0;
+  overflow-x: auto;
+  max-height: 560px;
+  overflow-y: auto;
+  background: #202227 !important;
+  color: #bcbec8;
+  font: 13px/1.6 "Fira Mono", "Source Code Pro", Consolas, "Courier New", monospace;
+  tab-size: 4;
+  color-scheme: dark;
+  counter-reset: ln calc(var(--start, 1) - 1);
+}
+.ide pre.shiki:focus-visible { outline: 2px solid #70a0ff; outline-offset: -2px; }
+.ide pre code {
+  display: flex;
+  flex-direction: column; /* flex items ignore the newline text between lines, so no blank rows */
+  min-width: max-content;
+  background: none;
+  padding: 0;
+}
+.ide .line { display: block; padding-right: 16px; }
+.ide .line::before {
+  counter-increment: ln;
+  content: counter(ln);
+  display: inline-block;
+  width: 3.4em;
+  padding-right: 12px;
+  margin-right: 14px;
+  text-align: right;
+  color: #868b9d;
+  border-right: 1px solid #2f323b;
+  user-select: none;
+}
+.ide-status {
+  padding: 6px 14px;
+  background: #17181c;
+  border-top: 1px solid #2f323b;
+  color: #8e92a3;
+  font: 12px/1 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+.code-page { padding-top: 28px; padding-bottom: 48px; max-width: 960px; }

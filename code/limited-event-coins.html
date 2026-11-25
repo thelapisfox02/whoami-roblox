@@ -1,0 +1,381 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark light">
+  <title>LimitedEventCoinsService | TheLapisFox02</title>
+  <link rel="stylesheet" href="../fonts.css">
+  <link rel="stylesheet" href="../code.css">
+  <link rel="stylesheet" href="../studio.css">
+  <script src="../theme.js"></script>
+</head>
+<body class="codepage">
+<div class="titlebar">
+  <span class="app">TheLapisFox02</span>
+  <button class="themebtn" type="button" hidden>Theme: Auto</button>
+</div>
+<main class="col">
+  <p class="back"><a href="../projects/amusementpark/#code-sample">&larr; Back to Fårup Sommerland</a></p>
+  <h1>LimitedEventCoinsService</h1>
+  <p class="meta"><span class="hand">Hand-written</span></p>
+  <p>Server-authoritative collectible service from a client commission. Client and event names are replaced (AmusementPark, LimitedEvent). External pieces not included: the event config module and the profile object.</p>
+  <div class="ide">
+  <div class="ide-tabs"><span class="ide-tab">LimitedEventCoinsService<small>ModuleScript</small></span></div>
+  <pre class="shiki" style="--start:1" tabindex="0"><code><span class="line"><span style="color:#868B9D">--!strict</span></span>
+<span class="line"><span style="color:#868B9D">-- REDACTED COPY for portfolio use. Client and event names are replaced (AmusementPark / LimitedEvent).</span></span>
+<span class="line"><span style="color:#868B9D">-- External dependencies, not included here: ReplicatedStorage.LimitedEventInfo (config: Ways, MaxCoins,</span></span>
+<span class="line"><span style="color:#868B9D">-- DefaultCooldown) and a profile object exposing GetData / SetBooleanValue / InsertToArray.</span></span>
+<span class="line"><span style="color:#868B9D">--</span></span>
+<span class="line"><span style="color:#868B9D">-- Backend helpers for LimitedEvent collectible coins.</span></span>
+<span class="line"><span style="color:#868B9D">-- LimitedEventCompleted means REDEEMED -- a venue staff member pressed "Redeem" in the GUI and</span></span>
+<span class="line"><span style="color:#868B9D">-- handed the prize over. It does NOT mean "has 5 coins": that is Verify, a pure check.</span></span>
+<span class="line"><span style="color:#868B9D">-- Only Redeem sets the flag, and it is permanent -- nothing here ever sets it false.</span></span>
+<span class="line"><span style="color:#868B9D">-- If a way is removed from LimitedEventInfo.Ways later, Normalize scrubs those coins but</span></span>
+<span class="line"><span style="color:#868B9D">-- will not un-redeem players who already collected their prize.</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">local</span><span style="color:#BCBEC8"> ReplicatedStorage = </span><span style="color:#8FB4FF">game</span><span style="color:#BCBEC8">:</span><span style="color:#FAE4AA">GetService</span><span style="color:#BCBEC8">(</span><span style="color:#8EE9B6">"ReplicatedStorage"</span><span style="color:#BCBEC8">)</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">local</span><span style="color:#BCBEC8"> AnalyticsService = </span><span style="color:#8FB4FF">game</span><span style="color:#BCBEC8">:</span><span style="color:#FAE4AA">GetService</span><span style="color:#BCBEC8">(</span><span style="color:#8EE9B6">"AnalyticsService"</span><span style="color:#BCBEC8">)</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">local</span><span style="color:#BCBEC8"> LimitedEventInfo = </span><span style="color:#8FB4FF">require</span><span style="color:#BCBEC8">(ReplicatedStorage:</span><span style="color:#FAE4AA">WaitForChild</span><span style="color:#BCBEC8">(</span><span style="color:#8EE9B6">"LimitedEventInfo"</span><span style="color:#BCBEC8">))</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">local</span><span style="color:#BCBEC8"> LimitedEventCoinsService = {}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#868B9D">-- Funnel: PlayerJoined -> FirstCoin -> LastCoin. Session id is the player's join</span></span>
+<span class="line"><span style="color:#868B9D">-- timestamp, matching the "Rewards" funnel, so each visit is its own funnel run.</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">local</span><span style="color:#BCBEC8"> FUNNEL_NAME = </span><span style="color:#8EE9B6">"EventCoins"</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">local</span><span style="color:#BCBEC8"> FUNNEL_STEPS = {</span></span>
+<span class="line"><span style="color:#BCBEC8">	PlayerJoined = </span><span style="color:#F2BA2A">1</span><span style="color:#BCBEC8">,</span></span>
+<span class="line"><span style="color:#BCBEC8">	FirstCoin = </span><span style="color:#F2BA2A">2</span><span style="color:#BCBEC8">,</span></span>
+<span class="line"><span style="color:#BCBEC8">	LastCoin = </span><span style="color:#F2BA2A">3</span><span style="color:#BCBEC8">,</span></span>
+<span class="line"><span style="color:#BCBEC8">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">local</span><span style="color:#EB7973;font-weight:bold"> function</span><span style="color:#FAE4AA"> logFunnelStep</span><span style="color:#BCBEC8">(player:</span><span style="color:#EB7973"> Player</span><span style="color:#BCBEC8">,</span><span style="color:#BCBEC8"> stepName:</span><span style="color:#70A0FF"> string</span><span style="color:#BCBEC8">)</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">	local</span><span style="color:#BCBEC8"> step = FUNNEL_STEPS[stepName]</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">	if</span><span style="color:#EB7973;font-weight:bold"> not</span><span style="color:#BCBEC8"> step </span><span style="color:#EB7973;font-weight:bold">then</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">		return</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">	end</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">	local</span><span style="color:#BCBEC8"> sessionId = player:</span><span style="color:#FAE4AA">GetAttribute</span><span style="color:#BCBEC8">(</span><span style="color:#8EE9B6">"_JOIN_TIME"</span><span style="color:#BCBEC8">)</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">	local</span><span style="color:#BCBEC8"> ok, err = </span><span style="color:#8FB4FF">pcall</span><span style="color:#BCBEC8">(</span><span style="color:#EB7973;font-weight:bold">function</span><span style="color:#BCBEC8">()</span></span>
+<span class="line"><span style="color:#BCBEC8">		AnalyticsService:</span><span style="color:#FAE4AA">LogFunnelStepEvent</span><span style="color:#BCBEC8">(player, FUNNEL_NAME, </span><span style="color:#8FB4FF">tostring</span><span style="color:#BCBEC8">(sessionId), step, stepName)</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">	end</span><span style="color:#BCBEC8">)</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">	if</span><span style="color:#EB7973;font-weight:bold"> not</span><span style="color:#BCBEC8"> ok </span><span style="color:#EB7973;font-weight:bold">then</span></span>
+<span class="line"><span style="color:#8FB4FF">		warn</span><span style="color:#BCBEC8">(</span><span style="color:#8EE9B6">`[LimitedEventCoinsService] > Funnel step </span><span style="color:#BCBEC8">{</span><span style="color:#BCBEC8">stepName</span><span style="color:#BCBEC8">}</span><span style="color:#8EE9B6"> failed for </span><span style="color:#BCBEC8">{</span><span style="color:#BCBEC8">player</span><span style="color:#BCBEC8">}</span><span style="color:#8EE9B6">: </span><span style="color:#BCBEC8">{</span><span style="color:#BCBEC8">err</span><span style="color:#BCBEC8">}</span><span style="color:#8EE9B6">`</span><span style="color:#BCBEC8">)</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">	end</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">end</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#868B9D">-- Step 1. Called once per session from the join callback.</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">function</span><span style="color:#FAE4AA"> LimitedEventCoinsService</span><span style="color:#EB7973">.</span><span style="color:#FAE4AA">LogJoinFunnelStep</span><span style="color:#BCBEC8">(player:</span><span style="color:#EB7973"> Player</span><span style="color:#BCBEC8">)</span></span>
+<span class="line"><span style="color:#FAE4AA">	logFunnelStep</span><span style="color:#BCBEC8">(player, </span><span style="color:#8EE9B6">"PlayerJoined"</span><span style="color:#BCBEC8">)</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">end</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#868B9D">-- Collecting the fifth coin is what pays out the cart skin -- redeeming deliberately</span></span>
+<span class="line"><span style="color:#868B9D">-- grants nothing, it is only the staff hand-over of the physical prize.</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">local</span><span style="color:#BCBEC8"> REWARD_CART_ID = </span><span style="color:#8EE9B6">"LimitedEventCart"</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">local</span><span style="color:#EB7973;font-weight:bold"> function</span><span style="color:#FAE4AA"> parseCoin</span><span style="color:#BCBEC8">(value:</span><span style="color:#70A0FF"> any</span><span style="color:#BCBEC8">): (</span><span style="color:#70A0FF">string</span><span style="color:#BCBEC8">?, </span><span style="color:#70A0FF">number</span><span style="color:#BCBEC8">?)</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">	if</span><span style="color:#8FB4FF"> type</span><span style="color:#BCBEC8">(value) ~= </span><span style="color:#8EE9B6">"string"</span><span style="color:#EB7973;font-weight:bold"> then</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">		return</span><span style="color:#F2BA2A;font-weight:bold"> nil</span><span style="color:#BCBEC8">, </span><span style="color:#F2BA2A;font-weight:bold">nil</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">	end</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">	local</span><span style="color:#BCBEC8"> way, timestamp = value:</span><span style="color:#FAE4AA">match</span><span style="color:#BCBEC8">(</span><span style="color:#8EE9B6">"^(.+)_(%d+)$"</span><span style="color:#BCBEC8">)</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">	if</span><span style="color:#EB7973;font-weight:bold"> not</span><span style="color:#BCBEC8"> way </span><span style="color:#EB7973;font-weight:bold">or</span><span style="color:#EB7973;font-weight:bold"> not</span><span style="color:#BCBEC8"> timestamp </span><span style="color:#EB7973;font-weight:bold">then</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">		return</span><span style="color:#F2BA2A;font-weight:bold"> nil</span><span style="color:#BCBEC8">, </span><span style="color:#F2BA2A;font-weight:bold">nil</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">	end</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">	if</span><span style="color:#EB7973;font-weight:bold"> not</span><span style="color:#BCBEC8"> LimitedEventInfo.</span><span style="color:#70A0FF">Ways</span><span style="color:#BCBEC8">[way] </span><span style="color:#EB7973;font-weight:bold">then</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">		return</span><span style="color:#F2BA2A;font-weight:bold"> nil</span><span style="color:#BCBEC8">, </span><span style="color:#F2BA2A;font-weight:bold">nil</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">	end</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">	return</span><span style="color:#BCBEC8"> way, </span><span style="color:#8FB4FF">tonumber</span><span style="color:#BCBEC8">(timestamp)</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">end</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">local</span><span style="color:#EB7973;font-weight:bold"> function</span><span style="color:#FAE4AA"> isValidCoin</span><span style="color:#BCBEC8">(value:</span><span style="color:#70A0FF"> any</span><span style="color:#BCBEC8">): </span><span style="color:#70A0FF">boolean</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">	local</span><span style="color:#BCBEC8"> way, timestamp = </span><span style="color:#FAE4AA">parseCoin</span><span style="color:#BCBEC8">(value)</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">	return</span><span style="color:#BCBEC8"> way ~= </span><span style="color:#F2BA2A;font-weight:bold">nil</span><span style="color:#EB7973;font-weight:bold"> and</span><span style="color:#BCBEC8"> timestamp ~= </span><span style="color:#F2BA2A;font-weight:bold">nil</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">end</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">local</span><span style="color:#EB7973;font-weight:bold"> function</span><span style="color:#FAE4AA"> getCooldownRemainingFromCoins</span><span style="color:#BCBEC8">(coins,</span><span style="color:#BCBEC8"> way:</span><span style="color:#70A0FF"> string</span><span style="color:#BCBEC8">): </span><span style="color:#70A0FF">number</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">	local</span><span style="color:#BCBEC8"> latest = </span><span style="color:#F2BA2A;font-weight:bold">nil</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">	for</span><span style="color:#BCBEC8"> i = </span><span style="color:#F2BA2A">1</span><span style="color:#BCBEC8">, LimitedEventInfo.</span><span style="color:#70A0FF">MaxCoins</span><span style="color:#EB7973;font-weight:bold"> do</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">		local</span><span style="color:#BCBEC8"> slotWay, timestamp = </span><span style="color:#FAE4AA">parseCoin</span><span style="color:#BCBEC8">(coins[i])</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">		if</span><span style="color:#BCBEC8"> slotWay == way </span><span style="color:#EB7973;font-weight:bold">and</span><span style="color:#BCBEC8"> timestamp </span><span style="color:#EB7973;font-weight:bold">and</span><span style="color:#BCBEC8"> (</span><span style="color:#EB7973;font-weight:bold">not</span><span style="color:#BCBEC8"> latest </span><span style="color:#EB7973;font-weight:bold">or</span><span style="color:#BCBEC8"> timestamp > latest) </span><span style="color:#EB7973;font-weight:bold">then</span></span>
+<span class="line"><span style="color:#BCBEC8">			latest = timestamp</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">		end</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">	end</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">	if</span><span style="color:#EB7973;font-weight:bold"> not</span><span style="color:#BCBEC8"> latest </span><span style="color:#EB7973;font-weight:bold">then</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">		return</span><span style="color:#F2BA2A"> 0</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">	end</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">	local</span><span style="color:#BCBEC8"> cooldown = LimitedEventInfo.</span><span style="color:#70A0FF">Ways</span><span style="color:#BCBEC8">[way].</span><span style="color:#70A0FF">Cooldown</span><span style="color:#EB7973;font-weight:bold"> or</span><span style="color:#BCBEC8"> LimitedEventInfo.</span><span style="color:#70A0FF">DefaultCooldown</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">	local</span><span style="color:#BCBEC8"> elapsed = </span><span style="color:#8FB4FF">os.time</span><span style="color:#BCBEC8">() - latest</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">	if</span><span style="color:#BCBEC8"> elapsed >= cooldown </span><span style="color:#EB7973;font-weight:bold">then</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">		return</span><span style="color:#F2BA2A"> 0</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">	end</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">	return</span><span style="color:#BCBEC8"> cooldown - elapsed</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">end</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">function</span><span style="color:#FAE4AA"> LimitedEventCoinsService</span><span style="color:#EB7973">.</span><span style="color:#FAE4AA">Normalize</span><span style="color:#BCBEC8">(profile)</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">	local</span><span style="color:#BCBEC8"> data = profile:</span><span style="color:#FAE4AA">GetData</span><span style="color:#BCBEC8">()</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">	local</span><span style="color:#BCBEC8"> coins = data.</span><span style="color:#70A0FF">LimitedEventCoins</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">	if</span><span style="color:#8FB4FF"> type</span><span style="color:#BCBEC8">(coins) ~= </span><span style="color:#8EE9B6">"table"</span><span style="color:#EB7973;font-weight:bold"> then</span></span>
+<span class="line"><span style="color:#BCBEC8">		coins = {}</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">	end</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">	local</span><span style="color:#BCBEC8"> rebuilt = {}</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">	for</span><span style="color:#BCBEC8"> i = </span><span style="color:#F2BA2A">1</span><span style="color:#BCBEC8">, LimitedEventInfo.</span><span style="color:#70A0FF">MaxCoins</span><span style="color:#EB7973;font-weight:bold"> do</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">		local</span><span style="color:#BCBEC8"> value = coins[i]</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">		if</span><span style="color:#BCBEC8"> value == </span><span style="color:#F2BA2A;font-weight:bold">nil</span><span style="color:#EB7973;font-weight:bold"> then</span></span>
+<span class="line"><span style="color:#BCBEC8">			value = coins[</span><span style="color:#8FB4FF">tostring</span><span style="color:#BCBEC8">(i)]</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">		end</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">		if</span><span style="color:#FAE4AA"> isValidCoin</span><span style="color:#BCBEC8">(value) </span><span style="color:#EB7973;font-weight:bold">then</span></span>
+<span class="line"><span style="color:#BCBEC8">			rebuilt[i] = value</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">		else</span></span>
+<span class="line"><span style="color:#BCBEC8">			rebuilt[i] = </span><span style="color:#F2BA2A;font-weight:bold">false</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">		end</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">	end</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#BCBEC8">	data.</span><span style="color:#70A0FF">LimitedEventCoins</span><span style="color:#BCBEC8"> = rebuilt</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">	return</span><span style="color:#BCBEC8"> rebuilt</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">end</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">function</span><span style="color:#FAE4AA"> LimitedEventCoinsService</span><span style="color:#EB7973">.</span><span style="color:#FAE4AA">GetCoins</span><span style="color:#BCBEC8">(profile)</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">	local</span><span style="color:#BCBEC8"> coins = LimitedEventCoinsService.</span><span style="color:#FAE4AA">Normalize</span><span style="color:#BCBEC8">(profile)</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">	local</span><span style="color:#BCBEC8"> copy = {}</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">	for</span><span style="color:#BCBEC8"> i = </span><span style="color:#F2BA2A">1</span><span style="color:#BCBEC8">, LimitedEventInfo.</span><span style="color:#70A0FF">MaxCoins</span><span style="color:#EB7973;font-weight:bold"> do</span></span>
+<span class="line"><span style="color:#BCBEC8">		copy[i] = coins[i]</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">	end</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">	return</span><span style="color:#BCBEC8"> copy</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">end</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">function</span><span style="color:#FAE4AA"> LimitedEventCoinsService</span><span style="color:#EB7973">.</span><span style="color:#FAE4AA">CountCoins</span><span style="color:#BCBEC8">(profile): </span><span style="color:#70A0FF">number</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">	local</span><span style="color:#BCBEC8"> coins = LimitedEventCoinsService.</span><span style="color:#FAE4AA">Normalize</span><span style="color:#BCBEC8">(profile)</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">	local</span><span style="color:#BCBEC8"> count = </span><span style="color:#F2BA2A">0</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">	for</span><span style="color:#BCBEC8"> i = </span><span style="color:#F2BA2A">1</span><span style="color:#BCBEC8">, LimitedEventInfo.</span><span style="color:#70A0FF">MaxCoins</span><span style="color:#EB7973;font-weight:bold"> do</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">		if</span><span style="color:#8FB4FF"> type</span><span style="color:#BCBEC8">(coins[i]) == </span><span style="color:#8EE9B6">"string"</span><span style="color:#EB7973;font-weight:bold"> then</span></span>
+<span class="line"><span style="color:#BCBEC8">			count += </span><span style="color:#F2BA2A">1</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">		end</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">	end</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">	return</span><span style="color:#BCBEC8"> count</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">end</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">function</span><span style="color:#FAE4AA"> LimitedEventCoinsService</span><span style="color:#EB7973">.</span><span style="color:#FAE4AA">IsCompleted</span><span style="color:#BCBEC8">(profile): </span><span style="color:#70A0FF">boolean</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">	local</span><span style="color:#BCBEC8"> data = profile:</span><span style="color:#FAE4AA">GetData</span><span style="color:#BCBEC8">()</span></span>
+<span class="line"><span style="color:#BCBEC8">	LimitedEventCoinsService.</span><span style="color:#FAE4AA">Normalize</span><span style="color:#BCBEC8">(profile)</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">	return</span><span style="color:#BCBEC8"> data.</span><span style="color:#70A0FF">LimitedEventCompleted</span><span style="color:#BCBEC8"> == </span><span style="color:#F2BA2A;font-weight:bold">true</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">end</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">function</span><span style="color:#FAE4AA"> LimitedEventCoinsService</span><span style="color:#EB7973">.</span><span style="color:#FAE4AA">GetCooldownRemaining</span><span style="color:#BCBEC8">(profile,</span><span style="color:#BCBEC8"> way:</span><span style="color:#70A0FF"> string</span><span style="color:#BCBEC8">): </span><span style="color:#70A0FF">number</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">	local</span><span style="color:#BCBEC8"> coins = LimitedEventCoinsService.</span><span style="color:#FAE4AA">Normalize</span><span style="color:#BCBEC8">(profile)</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">	if</span><span style="color:#8FB4FF"> type</span><span style="color:#BCBEC8">(way) ~= </span><span style="color:#8EE9B6">"string"</span><span style="color:#EB7973;font-weight:bold"> or</span><span style="color:#EB7973;font-weight:bold"> not</span><span style="color:#BCBEC8"> LimitedEventInfo.</span><span style="color:#70A0FF">Ways</span><span style="color:#BCBEC8">[way] </span><span style="color:#EB7973;font-weight:bold">then</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">		return</span><span style="color:#F2BA2A"> 0</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">	end</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">	return</span><span style="color:#FAE4AA"> getCooldownRemainingFromCoins</span><span style="color:#BCBEC8">(coins, way)</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">end</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">function</span><span style="color:#FAE4AA"> LimitedEventCoinsService</span><span style="color:#EB7973">.</span><span style="color:#FAE4AA">CanAddCoin</span><span style="color:#BCBEC8">(profile,</span><span style="color:#BCBEC8"> way:</span><span style="color:#70A0FF"> string</span><span style="color:#BCBEC8">): (</span><span style="color:#70A0FF">boolean</span><span style="color:#BCBEC8">, </span><span style="color:#70A0FF">string</span><span style="color:#BCBEC8">?)</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">	local</span><span style="color:#BCBEC8"> coins = LimitedEventCoinsService.</span><span style="color:#FAE4AA">Normalize</span><span style="color:#BCBEC8">(profile)</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">	if</span><span style="color:#8FB4FF"> type</span><span style="color:#BCBEC8">(way) ~= </span><span style="color:#8EE9B6">"string"</span><span style="color:#EB7973;font-weight:bold"> or</span><span style="color:#EB7973;font-weight:bold"> not</span><span style="color:#BCBEC8"> LimitedEventInfo.</span><span style="color:#70A0FF">Ways</span><span style="color:#BCBEC8">[way] </span><span style="color:#EB7973;font-weight:bold">then</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">		return</span><span style="color:#F2BA2A;font-weight:bold"> false</span><span style="color:#BCBEC8">, </span><span style="color:#8EE9B6">"INVALID_WAY"</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">	end</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">	local</span><span style="color:#BCBEC8"> hasEmptySlot = </span><span style="color:#F2BA2A;font-weight:bold">false</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">	for</span><span style="color:#BCBEC8"> i = </span><span style="color:#F2BA2A">1</span><span style="color:#BCBEC8">, LimitedEventInfo.</span><span style="color:#70A0FF">MaxCoins</span><span style="color:#EB7973;font-weight:bold"> do</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">		if</span><span style="color:#BCBEC8"> coins[i] == </span><span style="color:#F2BA2A;font-weight:bold">false</span><span style="color:#EB7973;font-weight:bold"> then</span></span>
+<span class="line"><span style="color:#BCBEC8">			hasEmptySlot = </span><span style="color:#F2BA2A;font-weight:bold">true</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">			break</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">		end</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">	end</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">	if</span><span style="color:#EB7973;font-weight:bold"> not</span><span style="color:#BCBEC8"> hasEmptySlot </span><span style="color:#EB7973;font-weight:bold">then</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">		return</span><span style="color:#F2BA2A;font-weight:bold"> false</span><span style="color:#BCBEC8">, </span><span style="color:#8EE9B6">"FULL"</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">	end</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">	if</span><span style="color:#FAE4AA"> getCooldownRemainingFromCoins</span><span style="color:#BCBEC8">(coins, way) > </span><span style="color:#F2BA2A">0</span><span style="color:#EB7973;font-weight:bold"> then</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">		return</span><span style="color:#F2BA2A;font-weight:bold"> false</span><span style="color:#BCBEC8">, </span><span style="color:#8EE9B6">"COOLDOWN"</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">	end</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">	return</span><span style="color:#F2BA2A;font-weight:bold"> true</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">end</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">function</span><span style="color:#FAE4AA"> LimitedEventCoinsService</span><span style="color:#EB7973">.</span><span style="color:#FAE4AA">AddCoin</span><span style="color:#BCBEC8">(profile,</span><span style="color:#BCBEC8"> way:</span><span style="color:#70A0FF"> string</span><span style="color:#BCBEC8">): (</span><span style="color:#70A0FF">boolean</span><span style="color:#BCBEC8">, </span><span style="color:#70A0FF">any</span><span style="color:#BCBEC8">, </span><span style="color:#70A0FF">number</span><span style="color:#BCBEC8">?)</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">	local</span><span style="color:#BCBEC8"> coins = LimitedEventCoinsService.</span><span style="color:#FAE4AA">Normalize</span><span style="color:#BCBEC8">(profile)</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">	if</span><span style="color:#8FB4FF"> type</span><span style="color:#BCBEC8">(way) ~= </span><span style="color:#8EE9B6">"string"</span><span style="color:#EB7973;font-weight:bold"> or</span><span style="color:#EB7973;font-weight:bold"> not</span><span style="color:#BCBEC8"> LimitedEventInfo.</span><span style="color:#70A0FF">Ways</span><span style="color:#BCBEC8">[way] </span><span style="color:#EB7973;font-weight:bold">then</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">		return</span><span style="color:#F2BA2A;font-weight:bold"> false</span><span style="color:#BCBEC8">, </span><span style="color:#8EE9B6">"INVALID_WAY"</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">	end</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">	local</span><span style="color:#BCBEC8"> emptyIndex = </span><span style="color:#F2BA2A;font-weight:bold">nil</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">	for</span><span style="color:#BCBEC8"> i = </span><span style="color:#F2BA2A">1</span><span style="color:#BCBEC8">, LimitedEventInfo.</span><span style="color:#70A0FF">MaxCoins</span><span style="color:#EB7973;font-weight:bold"> do</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">		if</span><span style="color:#BCBEC8"> coins[i] == </span><span style="color:#F2BA2A;font-weight:bold">false</span><span style="color:#EB7973;font-weight:bold"> then</span></span>
+<span class="line"><span style="color:#BCBEC8">			emptyIndex = i</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">			break</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">		end</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">	end</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">	if</span><span style="color:#EB7973;font-weight:bold"> not</span><span style="color:#BCBEC8"> emptyIndex </span><span style="color:#EB7973;font-weight:bold">then</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">		return</span><span style="color:#F2BA2A;font-weight:bold"> false</span><span style="color:#BCBEC8">, </span><span style="color:#8EE9B6">"FULL"</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">	end</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">	local</span><span style="color:#BCBEC8"> remaining = </span><span style="color:#FAE4AA">getCooldownRemainingFromCoins</span><span style="color:#BCBEC8">(coins, way)</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">	if</span><span style="color:#BCBEC8"> remaining > </span><span style="color:#F2BA2A">0</span><span style="color:#EB7973;font-weight:bold"> then</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">		return</span><span style="color:#F2BA2A;font-weight:bold"> false</span><span style="color:#BCBEC8">, </span><span style="color:#8EE9B6">"COOLDOWN"</span><span style="color:#BCBEC8">, remaining</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">	end</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#BCBEC8">	coins[emptyIndex] = way .. </span><span style="color:#8EE9B6">"_"</span><span style="color:#BCBEC8"> .. </span><span style="color:#8FB4FF">os.time</span><span style="color:#BCBEC8">()</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">	return</span><span style="color:#F2BA2A;font-weight:bold"> true</span><span style="color:#BCBEC8">, emptyIndex</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">end</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">function</span><span style="color:#FAE4AA"> LimitedEventCoinsService</span><span style="color:#EB7973">.</span><span style="color:#FAE4AA">RemoveCoin</span><span style="color:#BCBEC8">(profile,</span><span style="color:#BCBEC8"> target:</span><span style="color:#70A0FF"> any</span><span style="color:#BCBEC8">): (</span><span style="color:#70A0FF">boolean</span><span style="color:#BCBEC8">, </span><span style="color:#70A0FF">any</span><span style="color:#BCBEC8">, </span><span style="color:#70A0FF">any</span><span style="color:#BCBEC8">?)</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">	local</span><span style="color:#BCBEC8"> coins = LimitedEventCoinsService.</span><span style="color:#FAE4AA">Normalize</span><span style="color:#BCBEC8">(profile)</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">	local</span><span style="color:#BCBEC8"> index = </span><span style="color:#F2BA2A;font-weight:bold">nil</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">	if</span><span style="color:#8FB4FF"> type</span><span style="color:#BCBEC8">(target) == </span><span style="color:#8EE9B6">"number"</span><span style="color:#EB7973;font-weight:bold"> then</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">		if</span><span style="color:#BCBEC8"> target % </span><span style="color:#F2BA2A">1</span><span style="color:#BCBEC8"> ~= </span><span style="color:#F2BA2A">0</span><span style="color:#EB7973;font-weight:bold"> or</span><span style="color:#BCBEC8"> target &#x3C; </span><span style="color:#F2BA2A">1</span><span style="color:#EB7973;font-weight:bold"> or</span><span style="color:#BCBEC8"> target > LimitedEventInfo.</span><span style="color:#70A0FF">MaxCoins</span><span style="color:#EB7973;font-weight:bold"> then</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">			return</span><span style="color:#F2BA2A;font-weight:bold"> false</span><span style="color:#BCBEC8">, </span><span style="color:#8EE9B6">"OUT_OF_RANGE"</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">		end</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">		if</span><span style="color:#8FB4FF"> type</span><span style="color:#BCBEC8">(coins[target]) ~= </span><span style="color:#8EE9B6">"string"</span><span style="color:#EB7973;font-weight:bold"> then</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">			return</span><span style="color:#F2BA2A;font-weight:bold"> false</span><span style="color:#BCBEC8">, </span><span style="color:#8EE9B6">"EMPTY"</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">		end</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#BCBEC8">		index = target</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">	elseif</span><span style="color:#8FB4FF"> type</span><span style="color:#BCBEC8">(target) == </span><span style="color:#8EE9B6">"string"</span><span style="color:#EB7973;font-weight:bold"> then</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">		for</span><span style="color:#BCBEC8"> i = </span><span style="color:#F2BA2A">1</span><span style="color:#BCBEC8">, LimitedEventInfo.</span><span style="color:#70A0FF">MaxCoins</span><span style="color:#EB7973;font-weight:bold"> do</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">			if</span><span style="color:#BCBEC8"> coins[i] == target </span><span style="color:#EB7973;font-weight:bold">then</span></span>
+<span class="line"><span style="color:#BCBEC8">				index = i</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">				break</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">			end</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">		end</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">		if</span><span style="color:#EB7973;font-weight:bold"> not</span><span style="color:#BCBEC8"> index </span><span style="color:#EB7973;font-weight:bold">then</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">			local</span><span style="color:#BCBEC8"> latest = </span><span style="color:#F2BA2A;font-weight:bold">nil</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">			for</span><span style="color:#BCBEC8"> i = </span><span style="color:#F2BA2A">1</span><span style="color:#BCBEC8">, LimitedEventInfo.</span><span style="color:#70A0FF">MaxCoins</span><span style="color:#EB7973;font-weight:bold"> do</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">				local</span><span style="color:#BCBEC8"> way, timestamp = </span><span style="color:#FAE4AA">parseCoin</span><span style="color:#BCBEC8">(coins[i])</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">				if</span><span style="color:#BCBEC8"> way == target </span><span style="color:#EB7973;font-weight:bold">and</span><span style="color:#BCBEC8"> timestamp </span><span style="color:#EB7973;font-weight:bold">and</span><span style="color:#BCBEC8"> (</span><span style="color:#EB7973;font-weight:bold">not</span><span style="color:#BCBEC8"> latest </span><span style="color:#EB7973;font-weight:bold">or</span><span style="color:#BCBEC8"> timestamp > latest) </span><span style="color:#EB7973;font-weight:bold">then</span></span>
+<span class="line"><span style="color:#BCBEC8">					latest = timestamp</span></span>
+<span class="line"><span style="color:#BCBEC8">					index = i</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">				end</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">			end</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">		end</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">		if</span><span style="color:#EB7973;font-weight:bold"> not</span><span style="color:#BCBEC8"> index </span><span style="color:#EB7973;font-weight:bold">then</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">			return</span><span style="color:#F2BA2A;font-weight:bold"> false</span><span style="color:#BCBEC8">, </span><span style="color:#8EE9B6">"NOT_FOUND"</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">		end</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">	else</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">		return</span><span style="color:#F2BA2A;font-weight:bold"> false</span><span style="color:#BCBEC8">, </span><span style="color:#8EE9B6">"NOT_FOUND"</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">	end</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">	local</span><span style="color:#BCBEC8"> removedValue = coins[index]</span></span>
+<span class="line"><span style="color:#BCBEC8">	coins[index] = </span><span style="color:#F2BA2A;font-weight:bold">false</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">	return</span><span style="color:#F2BA2A;font-weight:bold"> true</span><span style="color:#BCBEC8">, index, removedValue</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">end</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#868B9D">-- True when all five slots hold a coin from an accepted way. Does not mutate anything</span></span>
+<span class="line"><span style="color:#868B9D">-- beyond Normalize's scrubbing -- this is the gate Redeem checks, not a state change.</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">function</span><span style="color:#FAE4AA"> LimitedEventCoinsService</span><span style="color:#EB7973">.</span><span style="color:#FAE4AA">Verify</span><span style="color:#BCBEC8">(profile): </span><span style="color:#70A0FF">boolean</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">	local</span><span style="color:#BCBEC8"> coins = LimitedEventCoinsService.</span><span style="color:#FAE4AA">Normalize</span><span style="color:#BCBEC8">(profile)</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">	for</span><span style="color:#BCBEC8"> i = </span><span style="color:#F2BA2A">1</span><span style="color:#BCBEC8">, LimitedEventInfo.</span><span style="color:#70A0FF">MaxCoins</span><span style="color:#EB7973;font-weight:bold"> do</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">		if</span><span style="color:#EB7973;font-weight:bold"> not</span><span style="color:#FAE4AA"> isValidCoin</span><span style="color:#BCBEC8">(coins[i]) </span><span style="color:#EB7973;font-weight:bold">then</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">			return</span><span style="color:#F2BA2A;font-weight:bold"> false</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">		end</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">	end</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">	return</span><span style="color:#F2BA2A;font-weight:bold"> true</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">end</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#868B9D">-- Marks the collection as redeemed. Server-authoritative: the client may ask, but the</span></span>
+<span class="line"><span style="color:#868B9D">-- five coins are re-checked here, so a forged request from a player who has not</span></span>
+<span class="line"><span style="color:#868B9D">-- collected them all is rejected.</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">function</span><span style="color:#FAE4AA"> LimitedEventCoinsService</span><span style="color:#EB7973">.</span><span style="color:#FAE4AA">Redeem</span><span style="color:#BCBEC8">(profile): (</span><span style="color:#70A0FF">boolean</span><span style="color:#BCBEC8">, </span><span style="color:#70A0FF">string</span><span style="color:#BCBEC8">?)</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">	local</span><span style="color:#BCBEC8"> data = profile:</span><span style="color:#FAE4AA">GetData</span><span style="color:#BCBEC8">()</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">	if</span><span style="color:#BCBEC8"> data.</span><span style="color:#70A0FF">LimitedEventCompleted</span><span style="color:#BCBEC8"> == </span><span style="color:#F2BA2A;font-weight:bold">true</span><span style="color:#EB7973;font-weight:bold"> then</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">		return</span><span style="color:#F2BA2A;font-weight:bold"> false</span><span style="color:#BCBEC8">, </span><span style="color:#8EE9B6">"ALREADY_REDEEMED"</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">	end</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">	if</span><span style="color:#EB7973;font-weight:bold"> not</span><span style="color:#BCBEC8"> LimitedEventCoinsService.</span><span style="color:#FAE4AA">Verify</span><span style="color:#BCBEC8">(profile) </span><span style="color:#EB7973;font-weight:bold">then</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">		return</span><span style="color:#F2BA2A;font-weight:bold"> false</span><span style="color:#BCBEC8">, </span><span style="color:#8EE9B6">"INCOMPLETE"</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">	end</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#BCBEC8">	profile:</span><span style="color:#FAE4AA">SetBooleanValue</span><span style="color:#BCBEC8">(</span><span style="color:#8EE9B6">"LimitedEventCompleted"</span><span style="color:#BCBEC8">, </span><span style="color:#F2BA2A;font-weight:bold">true</span><span style="color:#BCBEC8">)</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">	return</span><span style="color:#F2BA2A;font-weight:bold"> true</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">end</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#868B9D">-- Mirrors the coin total onto the player so the HUD counter can follow it live without</span></span>
+<span class="line"><span style="color:#868B9D">-- polling the RemoteFunction. Call this whenever the count can have changed.</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">function</span><span style="color:#FAE4AA"> LimitedEventCoinsService</span><span style="color:#EB7973">.</span><span style="color:#FAE4AA">PublishCount</span><span style="color:#BCBEC8">(player:</span><span style="color:#EB7973"> Player</span><span style="color:#BCBEC8">,</span><span style="color:#BCBEC8"> profile)</span></span>
+<span class="line"><span style="color:#BCBEC8">	player:</span><span style="color:#FAE4AA">SetAttribute</span><span style="color:#BCBEC8">(</span><span style="color:#8EE9B6">"LimitedEventCoinCount"</span><span style="color:#BCBEC8">, LimitedEventCoinsService.</span><span style="color:#FAE4AA">CountCoins</span><span style="color:#BCBEC8">(profile))</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">end</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#868B9D">-- Redeeming is permanent, so this attribute only ever goes false -> true. Published so the</span></span>
+<span class="line"><span style="color:#868B9D">-- client can retire the LimitedEvent event props for a player whose prize has been handed over.</span></span>
+<span class="line"><span style="color:#868B9D">-- Call it on join and after every successful Redeem.</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">function</span><span style="color:#FAE4AA"> LimitedEventCoinsService</span><span style="color:#EB7973">.</span><span style="color:#FAE4AA">PublishCompleted</span><span style="color:#BCBEC8">(player:</span><span style="color:#EB7973"> Player</span><span style="color:#BCBEC8">,</span><span style="color:#BCBEC8"> profile)</span></span>
+<span class="line"><span style="color:#BCBEC8">	player:</span><span style="color:#FAE4AA">SetAttribute</span><span style="color:#BCBEC8">(</span><span style="color:#8EE9B6">"LimitedEventCompleted"</span><span style="color:#BCBEC8">, LimitedEventCoinsService.</span><span style="color:#FAE4AA">IsCompleted</span><span style="color:#BCBEC8">(profile))</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">end</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#868B9D">-- Fired the moment the collection is completed by gaining a coin, so the client can show</span></span>
+<span class="line"><span style="color:#868B9D">-- the two completion popups. Granting the cart is idempotent: a player who somehow lands</span></span>
+<span class="line"><span style="color:#868B9D">-- here twice does not end up with a duplicate entry in OwnedVehicles.</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">local</span><span style="color:#EB7973;font-weight:bold"> function</span><span style="color:#FAE4AA"> grantCompletionReward</span><span style="color:#BCBEC8">(player:</span><span style="color:#EB7973"> Player</span><span style="color:#BCBEC8">,</span><span style="color:#BCBEC8"> profile)</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">	local</span><span style="color:#BCBEC8"> owned = profile:</span><span style="color:#FAE4AA">GetData</span><span style="color:#BCBEC8">().</span><span style="color:#70A0FF">OwnedVehicles</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">	if</span><span style="color:#8FB4FF"> type</span><span style="color:#BCBEC8">(owned) == </span><span style="color:#8EE9B6">"table"</span><span style="color:#EB7973;font-weight:bold"> and</span><span style="color:#EB7973;font-weight:bold"> not</span><span style="color:#8FB4FF"> table.find</span><span style="color:#BCBEC8">(owned, REWARD_CART_ID) </span><span style="color:#EB7973;font-weight:bold">then</span></span>
+<span class="line"><span style="color:#BCBEC8">		profile:</span><span style="color:#FAE4AA">InsertToArray</span><span style="color:#BCBEC8">(</span><span style="color:#8EE9B6">"OwnedVehicles"</span><span style="color:#BCBEC8">, REWARD_CART_ID)</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">	end</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">	local</span><span style="color:#BCBEC8"> remotes = ReplicatedStorage:</span><span style="color:#FAE4AA">FindFirstChild</span><span style="color:#BCBEC8">(</span><span style="color:#8EE9B6">"Remotes"</span><span style="color:#BCBEC8">)</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">	local</span><span style="color:#BCBEC8"> remote = remotes </span><span style="color:#EB7973;font-weight:bold">and</span><span style="color:#BCBEC8"> remotes:</span><span style="color:#FAE4AA">FindFirstChild</span><span style="color:#BCBEC8">(</span><span style="color:#8EE9B6">"LimitedEventCollectionComplete"</span><span style="color:#BCBEC8">)</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">	if</span><span style="color:#BCBEC8"> remote </span><span style="color:#EB7973;font-weight:bold">and</span><span style="color:#BCBEC8"> remote:</span><span style="color:#FAE4AA">IsA</span><span style="color:#BCBEC8">(</span><span style="color:#8EE9B6">"RemoteEvent"</span><span style="color:#BCBEC8">) </span><span style="color:#EB7973;font-weight:bold">then</span></span>
+<span class="line"><span style="color:#BCBEC8">		remote:</span><span style="color:#FAE4AA">FireClient</span><span style="color:#BCBEC8">(player, REWARD_CART_ID)</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">	else</span></span>
+<span class="line"><span style="color:#8FB4FF">		warn</span><span style="color:#BCBEC8">(</span><span style="color:#8EE9B6">"[LimitedEventCoinsService] > Missing ReplicatedStorage.Remotes.LimitedEventCollectionComplete"</span><span style="color:#BCBEC8">)</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">	end</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">end</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#868B9D">-- The single place a coin is granted. Both gain sources (PARKOUR, SURVEY) go through here so</span></span>
+<span class="line"><span style="color:#868B9D">-- the analytics event is emitted exactly once per attempt, successful or not.</span></span>
+<span class="line"><span style="color:#868B9D">-- Returns the same tuple as AddCoin: (ok, indexOrReason, cooldownRemaining?)</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">function</span><span style="color:#FAE4AA"> LimitedEventCoinsService</span><span style="color:#EB7973">.</span><span style="color:#FAE4AA">AwardCoin</span><span style="color:#BCBEC8">(player:</span><span style="color:#EB7973"> Player</span><span style="color:#BCBEC8">,</span><span style="color:#BCBEC8"> profile,</span><span style="color:#BCBEC8"> way:</span><span style="color:#70A0FF"> string</span><span style="color:#BCBEC8">): (</span><span style="color:#70A0FF">boolean</span><span style="color:#BCBEC8">, </span><span style="color:#70A0FF">any</span><span style="color:#BCBEC8">, </span><span style="color:#70A0FF">number</span><span style="color:#BCBEC8">?)</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">	local</span><span style="color:#BCBEC8"> ok, indexOrReason, remaining = LimitedEventCoinsService.</span><span style="color:#FAE4AA">AddCoin</span><span style="color:#BCBEC8">(profile, way)</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">	if</span><span style="color:#BCBEC8"> ok </span><span style="color:#EB7973;font-weight:bold">then</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">		local</span><span style="color:#BCBEC8"> total = LimitedEventCoinsService.</span><span style="color:#FAE4AA">CountCoins</span><span style="color:#BCBEC8">(profile)</span></span>
+<span class="line"><span style="color:#BCBEC8">		player:</span><span style="color:#FAE4AA">SetAttribute</span><span style="color:#BCBEC8">(</span><span style="color:#8EE9B6">"LimitedEventCoinCount"</span><span style="color:#BCBEC8">, total)</span></span>
+<span class="line"><span style="color:#BCBEC8">		AnalyticsService:</span><span style="color:#FAE4AA">LogCustomEvent</span><span style="color:#BCBEC8">(player, </span><span style="color:#8EE9B6">"LimitedEvent Coin Gained"</span><span style="color:#BCBEC8">, </span><span style="color:#F2BA2A">1</span><span style="color:#BCBEC8">, {</span></span>
+<span class="line"><span style="color:#BCBEC8">			[</span><span style="color:#8FB4FF">Enum.AnalyticsCustomFieldKeys.CustomField01</span><span style="color:#BCBEC8">.</span><span style="color:#70A0FF">Name</span><span style="color:#BCBEC8">] = way,</span></span>
+<span class="line"><span style="color:#BCBEC8">			[</span><span style="color:#8FB4FF">Enum.AnalyticsCustomFieldKeys.CustomField02</span><span style="color:#BCBEC8">.</span><span style="color:#70A0FF">Name</span><span style="color:#BCBEC8">] = </span><span style="color:#8FB4FF">tostring</span><span style="color:#BCBEC8">(total),</span></span>
+<span class="line"><span style="color:#BCBEC8">		})</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#868B9D">		-- Funnel steps are driven by the resulting total, so they fire exactly once</span></span>
+<span class="line"><span style="color:#868B9D">		-- each no matter which way granted the coin.</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">		if</span><span style="color:#BCBEC8"> total == </span><span style="color:#F2BA2A">1</span><span style="color:#EB7973;font-weight:bold"> then</span></span>
+<span class="line"><span style="color:#FAE4AA">			logFunnelStep</span><span style="color:#BCBEC8">(player, </span><span style="color:#8EE9B6">"FirstCoin"</span><span style="color:#BCBEC8">)</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">		end</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">		if</span><span style="color:#BCBEC8"> total >= LimitedEventInfo.</span><span style="color:#70A0FF">MaxCoins</span><span style="color:#EB7973;font-weight:bold"> then</span></span>
+<span class="line"><span style="color:#FAE4AA">			logFunnelStep</span><span style="color:#BCBEC8">(player, </span><span style="color:#8EE9B6">"LastCoin"</span><span style="color:#BCBEC8">)</span></span>
+<span class="line"><span style="color:#FAE4AA">			grantCompletionReward</span><span style="color:#BCBEC8">(player, profile)</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">		end</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">	else</span></span>
+<span class="line"><span style="color:#8FB4FF">		warn</span><span style="color:#BCBEC8">(</span><span style="color:#8EE9B6">`[LimitedEventCoinsService] > Coin not awarded to </span><span style="color:#BCBEC8">{</span><span style="color:#BCBEC8">player</span><span style="color:#BCBEC8">}</span><span style="color:#8EE9B6">: </span><span style="color:#BCBEC8">{</span><span style="color:#BCBEC8">way</span><span style="color:#BCBEC8">}</span><span style="color:#8EE9B6"> / </span><span style="color:#BCBEC8">{</span><span style="color:#BCBEC8">indexOrReason</span><span style="color:#BCBEC8">}</span><span style="color:#8EE9B6">`</span><span style="color:#BCBEC8">)</span></span>
+<span class="line"><span style="color:#BCBEC8">		AnalyticsService:</span><span style="color:#FAE4AA">LogCustomEvent</span><span style="color:#BCBEC8">(player, </span><span style="color:#8EE9B6">"LimitedEvent Coin Rejected"</span><span style="color:#BCBEC8">, </span><span style="color:#F2BA2A">1</span><span style="color:#BCBEC8">, {</span></span>
+<span class="line"><span style="color:#BCBEC8">			[</span><span style="color:#8FB4FF">Enum.AnalyticsCustomFieldKeys.CustomField01</span><span style="color:#BCBEC8">.</span><span style="color:#70A0FF">Name</span><span style="color:#BCBEC8">] = way,</span></span>
+<span class="line"><span style="color:#BCBEC8">			[</span><span style="color:#8FB4FF">Enum.AnalyticsCustomFieldKeys.CustomField02</span><span style="color:#BCBEC8">.</span><span style="color:#70A0FF">Name</span><span style="color:#BCBEC8">] = </span><span style="color:#8FB4FF">tostring</span><span style="color:#BCBEC8">(indexOrReason),</span></span>
+<span class="line"><span style="color:#BCBEC8">		})</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">	end</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">	return</span><span style="color:#BCBEC8"> ok, indexOrReason, remaining</span></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">end</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#EB7973;font-weight:bold">return</span><span style="color:#BCBEC8"> LimitedEventCoinsService</span></span></code></pre>
+  <div class="ide-status">Luau · 351 lines · strict</div>
+</div>
+  <p class="note"><a href="../examples/limited-event-coins/LimitedEventCoinsService.luau">Raw file (LimitedEventCoinsService.luau)</a> &middot; Highlighting by <a href="https://shiki.style/">Shiki</a> with the Roblox Studio dark theme by Ryan Luu (MIT). Token rules come from a TextMate grammar, so a few tokens differ from Studio. The comment colour is slightly lightened for legibility.</p>
+</main>
+</body>
+</html>
